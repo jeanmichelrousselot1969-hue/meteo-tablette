@@ -1,0 +1,21 @@
+{
+ "speed": 300,
+ "reminders": [],
+ "photos": [
+  {
+   "file": "photos/p-mwxw588te4lp.jpg",
+   "sha": "4418f1f6e59457944f084e6c373ea907be2b1441",
+   "name": "512653175_23913574064996375_2968130517297905567_n.jpg",
+   "enc": false,
+   "from": "2016-07-03",
+   "to": "",
+   "yearly": true,
+   "parts": [
+    "apresmidi"
+   ],
+   "msg": "",
+   "fit": "auto",
+   "taken": ""
+  }
+ ]
+}
