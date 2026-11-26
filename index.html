@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="fr-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Météo Rivière-des-Prairies</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+/* VOICE: simple, lisible de loin — un cadre photo qui donne l'heure et la météo
+   IDEA: petite tablette sur un meuble; un coup d'œil suffit
+   PICTURE: vos photos plein écran, l'heure et la température par-dessus
+   COLOUR: bleu glacier profond par défaut, blanc, accent orange chaud; alertes en pastilles
+   TYPE/LAYOUT: Archivo; date + heure en haut, message au milieu, météo en bas */
+:root{--bg:#eef4f8;--card:#ffffff;--ink:#0c1b26;--mute:#4f6676;--msgbg:#fff3ec;
+  --deep:#0f3b57;--river:#1f6f96;--warm:#ff9a5c;--line:#d6e2ea}
+@media(prefers-color-scheme:dark){:root{--bg:#0b1620;--card:#122230;--ink:#e8f1f7;--mute:#9db2c1;--msgbg:#2a1a12;--line:#24394a}}
+*{box-sizing:border-box;min-width:0}
+html,body{height:100%}
+body{margin:0;font:16px/1.4 Archivo,system-ui,sans-serif;overflow:hidden;background:var(--deep);color:#fff}
+.screen{position:fixed;inset:0;background:radial-gradient(120% 90% at 70% 10%,#2b7fa8,var(--deep) 60%,#0a2a3e);
+  display:flex;flex-direction:column;justify-content:space-between;gap:8px;padding:clamp(14px,3.5vh,32px) clamp(16px,3.5vw,40px);
+  text-shadow:0 2px 12px rgba(0,0,0,.55)}
+.slides{position:absolute;inset:0;display:none}
+.has-photos .slides{display:block}
+.layer{position:absolute;inset:0;opacity:0;transition:opacity 1.5s ease;overflow:hidden}
+.layer.on{opacity:1}
+.layer img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.layer .bg{display:none;filter:blur(26px) brightness(.65);transform:scale(1.15)}
+.layer.whole .bg{display:block}
+.layer.whole .fg{object-fit:contain}
+.motion .layer.on .fg{animation:kb var(--kbdur,300s) linear forwards}
+@keyframes kb{from{transform:scale(1)}to{transform:scale(1.08)}}
+.slides:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.5),rgba(0,0,0,0) 28%,rgba(0,0,0,0) 42%,rgba(0,0,0,.72))}
+.night .slides img{filter:brightness(.6)}
+.night .screen{filter:brightness(.85)}
+.top,.bottom,.banner,.pills,.menu,.toast,.lockbox{position:relative;z-index:2}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.date{font-size:clamp(22px,5.2vh,40px);font-weight:600;line-height:1.1}
+.date:first-letter{text-transform:uppercase}
+.place{font-size:clamp(14px,2.6vh,18px);opacity:.88;margin-top:3px}
+.right{display:flex;align-items:flex-start;gap:12px}
+.clock{font-size:clamp(40px,11vh,84px);font-weight:800;line-height:.9;letter-spacing:-.02em;white-space:nowrap;font-variant-numeric:tabular-nums}
+.awake{font-size:14px;color:var(--warm);font-weight:600;margin-top:4px;display:none}
+.awake.warn{display:block}
+.menuBtn{font:inherit;font-size:15px;min-height:44px;min-width:44px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,255,255,.4);
+  background:rgba(0,0,0,.25);color:#fff;cursor:pointer;opacity:.7}
+.banner{font-size:clamp(26px,7vh,54px);font-weight:800;line-height:1.1;color:#fff;text-wrap:balance;max-width:24ch}
+.banner[hidden]{display:none}
+.bottom{display:flex;align-items:flex-end;gap:clamp(14px,3vw,36px)}
+.temp{font-size:clamp(90px,34vh,250px);font-weight:800;line-height:.82;letter-spacing:-.05em;white-space:nowrap}
+.temp small{font-size:.3em;font-weight:600;vertical-align:top;margin-left:6px;letter-spacing:0}
+.info{padding-bottom:clamp(4px,1.5vh,14px)}
+.pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
+.pills+.bottom{margin-top:0}
+.pills:empty{display:none}
+.pill{display:inline-block;color:#fff;text-shadow:none;font-weight:800;font-size:clamp(15px,3.3vh,22px);padding:4px 13px;border-radius:999px;white-space:nowrap}
+.pill.danger{background:#c92a2a}.pill.warn{background:#e8590c}.pill.info{background:#1971c2}
+.pill.rem{background:#fff;color:#0c1b26}.pill.stale{background:#495057}
+.cond{font-size:clamp(24px,6vh,44px);font-weight:600;line-height:1.1;display:flex;align-items:center;gap:.3em}
+.wxicon{display:inline-flex}.wxicon svg{width:1.7em;height:1.7em;filter:drop-shadow(0 2px 6px rgba(0,0,0,.45))}
+.feels{font-size:clamp(18px,4vh,28px);color:var(--warm);font-weight:600;margin-top:4px}
+.mm{font-size:clamp(17px,3.8vh,27px);margin-top:5px;white-space:nowrap}
+.mm b{font-weight:800}
+.tmw{font-size:clamp(15px,3vh,20px);opacity:.9;margin-top:5px}
+.menu{position:absolute;right:clamp(16px,3.5vw,40px);top:calc(clamp(14px,3.5vh,32px) + 56px);display:none;flex-direction:column;gap:8px;
+  background:rgba(8,25,38,.9);padding:12px;border-radius:16px;text-shadow:none;min-width:220px;z-index:5}
+.menu.open{display:flex}
+.menu button{font:inherit;font-size:17px;min-height:48px;padding:0 18px;border-radius:12px;border:0;background:rgba(255,255,255,.12);color:#fff;text-align:left;cursor:pointer}
+.menu button:hover{background:rgba(255,255,255,.22)}
+.tablet .menu .pc-only{display:none}
+.menu .upd{font-size:13px;opacity:.7;padding:2px 4px}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--warm);outline-offset:2px}
+.toast{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:rgba(0,0,0,.8);padding:10px 16px;border-radius:12px;font-size:15px;text-shadow:none;display:none;max-width:90%;z-index:6}
+.toast.show{display:block}
+.lockbox{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(8,25,38,.94);padding:20px;border-radius:18px;text-shadow:none;
+  display:flex;flex-direction:column;gap:10px;width:min(92vw,380px);z-index:7}
+.lockbox[hidden]{display:none}
+.lockbox input{font:inherit;font-size:18px;min-height:48px;border-radius:10px;border:0;padding:0 12px}
+.lockbox button{font:inherit;font-size:17px;min-height:48px;border-radius:10px;border:0;background:var(--river);color:#fff;font-weight:600}
+.lockbox .m{color:var(--warm);font-size:14px;min-height:1em}
+/* Fond selon la météo (quand il n'y a pas de photo) */
+.bg-clear .screen{background:radial-gradient(120% 90% at 75% 5%,#5bb8f0,#1d6fb0 55%,#0e3f6e)}
+.bg-cold .screen{background:radial-gradient(120% 90% at 75% 5%,#a9dcf5,#3c86b8 50%,#173f61)}
+.bg-hot .screen{background:radial-gradient(120% 90% at 75% 5%,#ffbe76,#e8590c 55%,#8a2c06)}
+.bg-night .screen{background:radial-gradient(120% 90% at 75% 5%,#2a3f6b,#111c38 55%,#050914)}
+.bg-cloud .screen{background:linear-gradient(170deg,#71808d,#3d4a56 60%,#262f38)}
+.bg-rain .screen{background:linear-gradient(170deg,#55677a,#2c3a48 60%,#18212b)}
+.bg-snow .screen{background:linear-gradient(170deg,#8fa7ba,#4f677b 60%,#2c3e4d)}
+.bg-storm .screen{background:linear-gradient(170deg,#4b4366,#231d36 60%,#0f0c18)}
+/* Très grand */
+.big .clock{font-size:clamp(56px,17vh,130px)}
+.big .temp{font-size:clamp(110px,44vh,330px)}
+.big .cond{font-size:clamp(28px,7.5vh,58px)}
+.big .feels,.big .mm{font-size:clamp(20px,4.8vh,34px)}
+.big .tmw,.big #sun,.big .date{display:none}
+.big .place{font-size:clamp(18px,3.6vh,26px);font-weight:600;opacity:1}
+/* Écran de démarrage (un toucher) */
+.start{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.25);cursor:pointer}
+.start[hidden]{display:none}
+.start div{background:rgba(8,25,38,.92);color:#fff;border-radius:20px;padding:18px 28px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.4)}
+.start b{display:block;font-size:clamp(22px,5vh,34px)}
+.start span{font-size:16px;opacity:.8}
+.deep .start{background:rgba(0,0,0,.6)}.deep .start div{background:#111;color:#888}
+/* Écran de nuit : l'heure et la température seulement, très sombre */
+.deep .screen{background:#000;color:#8a8f94;text-shadow:none;justify-content:center;align-items:center;gap:3vh}
+.deep .slides,.deep .left,.deep .menuBtn,.deep .banner,.deep .info,.deep .menu{display:none!important}
+.deep .top{justify-content:center}
+.deep .clock{font-size:min(30vh,24vw)}
+.deep .bottom{justify-content:center}
+.deep .temp{font-size:min(16vh,13vw)}
+.deep .info{padding:0}
+.deep .pills{margin-top:0;justify-content:center;order:3}
+.deep .pill{background:#1c1f22!important;color:#8a8f94!important}
+@media(orientation:portrait){.bottom{flex-direction:column;align-items:flex-start;gap:6px}.temp{font-size:clamp(90px,26vw,220px)}
+  .top{flex-wrap:wrap}.clock{font-size:clamp(40px,8vh,80px)}}
+@media(max-height:470px){.tmw{display:none}}
+/* Panneau photos et rappels (PC) */
+.panel{position:fixed;inset:0;background:rgba(5,15,25,.6);display:none;z-index:10;padding:16px;overflow-y:auto;text-shadow:none}
+.panel.open{display:block}
+.sheet{background:var(--card);color:var(--ink);max-width:800px;margin:2vh auto;border-radius:20px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.sheet h2{margin:0 0 6px;font-size:26px}
+.sheet h3{margin:0 0 6px;font-size:20px}
+.sec{border-top:1px solid var(--line);padding-top:16px;margin-top:18px}
+.sheet p{margin:6px 0 12px;color:var(--mute)}
+.sheet button{font:inherit;font-size:15px;min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.sheet .primary{background:var(--river);border-color:var(--river);color:#fff;font-weight:600}
+.sheet button:disabled{opacity:.5}
+.drop{border:2px dashed var(--line);border-radius:16px;padding:22px;text-align:center;margin:12px 0;cursor:pointer;display:block}
+.drop.over{border-color:var(--warm);background:var(--msgbg)}
+.drop input{display:none}
+.drop b{display:block;font-size:18px;margin-bottom:4px}
+.thumbs{display:grid;gap:10px;margin:14px 0}
+.thumb{display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;align-items:start;padding:10px;border:1px solid var(--line);border-radius:14px}
+.thumb.today{box-shadow:0 0 0 2px var(--warm) inset;border-color:var(--warm)}
+.thumb img{width:120px;aspect-ratio:4/3;object-fit:cover;border-radius:8px;display:block;background:var(--bg)}
+.fields{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-top:6px}
+.fields label{font-size:14px;color:var(--mute);display:flex;gap:6px;align-items:center}
+.fields label.wide{flex:1 1 100%}
+.fields label.wide input{flex:1}
+.sheet input[type=date],.sheet input[type=text],.sheet input[type=password],.sheet select{font:inherit;font-size:16px;min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:0 10px}
+.sheet input[type=checkbox]{width:20px;height:20px}
+.fields.col{flex-direction:column;align-items:stretch}
+.fields.col label{flex-direction:column;align-items:stretch;color:var(--ink)}
+.when{font-weight:600;font-size:15px}
+.when.def{color:var(--mute);font-weight:400}
+.new{font-size:12px;font-weight:600;background:#e8590c;color:#fff;border-radius:6px;padding:2px 6px;margin-left:6px}
+.parts .lbl{font-size:14px;font-weight:600;color:var(--ink)}.hint{font-size:13px;color:var(--mute)}
+.rm{min-height:36px!important;padding:0 12px!important;font-size:14px!important}
+.rem-row{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:14px;margin-bottom:8px}
+.rem-row input[type=text]{flex:1 1 180px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:12px 0}
+.empty{color:var(--mute);font-size:14px;text-align:center;padding:10px}
+.bulk{background:var(--msgbg);border-radius:14px;padding:12px 14px;margin:8px 0}
+.bulk .lbl,.row .lbl{font-size:14px;font-weight:600}
+.thumb .sel{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--mute);margin-top:6px}
+.thumb.picked{background:var(--msgbg)}
+.taken{font-size:13px;color:var(--mute)}
+.cal{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}
+.mon b{display:block;font-size:14px;margin-bottom:4px;text-transform:capitalize}
+.mon .g{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.mon .g span{font-size:11px;color:var(--mute);text-align:center}
+.mon .g button{all:unset;cursor:pointer;font-size:12px;text-align:center;aspect-ratio:1;border-radius:6px;position:relative;display:flex;align-items:center;justify-content:center;color:var(--ink)}
+.mon .g button.ph{background:#ff922b;color:#fff;font-weight:700}
+.mon .g button.today{outline:2px solid var(--river)}
+.mon .g button.msg::after{content:"";position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;background:#fff;box-shadow:0 0 0 1px #c05600}
+.mon .g button.rm2::before{content:"";position:absolute;left:20%;right:20%;bottom:2px;height:3px;border-radius:2px;background:#1971c2}
+.mon .g button:focus-visible{outline:3px solid var(--warm)}
+.undo{position:sticky;bottom:0;display:flex;gap:12px;align-items:center;justify-content:space-between;background:#212529;color:#fff;border-radius:12px;padding:8px 8px 8px 16px;margin-top:12px}
+.undo[hidden]{display:none}
+.undo button{background:#ffd43b!important;color:#212529!important;border:0!important;font-weight:700}
+.sheet .sub{font-size:14px;color:var(--mute);margin:4px 0}
+.sheet .ok{color:#2b8a3e;font-weight:600}.sheet .bad{color:#c92a2a;font-weight:600}
+@media(max-width:600px){.thumb{grid-template-columns:1fr}.thumb img{width:100%}.sheet{padding:18px}}
+@media(prefers-reduced-motion:reduce){.layer{transition:none}.motion .layer.on .fg{animation:none}}
+</style>
+</head>
+<body>
+<div class="screen" id="screen">
+  <div class="slides" id="slides"><div class="layer" id="imgA"><img class="bg" alt=""><img class="fg" alt=""></div><div class="layer" id="imgB"><img class="bg" alt=""><img class="fg" alt=""></div></div>
+  <div class="toast" id="msg" role="status"></div>
+  <div class="top">
+    <div class="left">
+      <div class="date" id="today"></div>
+      <div class="place"><span id="place">Rivière-des-Prairies</span><span id="sun"></span></div>
+      <div class="awake" id="awake">Touchez l'écran pour le garder allumé</div>
+    </div>
+    <div class="right">
+      <div class="clock" id="clock">--:--</div>
+      <button class="menuBtn" id="menuBtn" type="button" aria-expanded="false" aria-controls="menu">Menu</button>
+    </div>
+  </div>
+  <div class="menu" id="menu">
+    <button id="full" type="button">Plein écran</button>
+    <button id="refresh" type="button">Actualiser la météo</button>
+    <button id="bigBtn" type="button">Très grand : non</button>
+    <button id="motionBtn" type="button">Zoom lent des photos : oui</button>
+    <button id="photosBtn" type="button" class="pc-only">Photos et rappels</button>
+    <button id="locate" type="button" class="pc-only">Ma position</button>
+    <div class="upd" id="updated">Chargement…</div>
+  </div>
+  <div class="banner" id="banner" hidden></div>
+  <div class="pills" id="pills"></div>
+  <div class="bottom">
+    <div class="temp" id="temp">--<small>°C</small></div>
+    <div class="info">
+      <div class="cond"><span class="wxicon" id="wxicon" aria-hidden="true"></span><span id="cond">&nbsp;</span></div>
+      <div class="feels" id="feels"></div>
+      <div class="mm" id="mm"></div>
+      <div class="mm" id="hum"></div>
+      <div class="tmw" id="tmw"></div>
+    </div>
+  </div>
+  <div class="lockbox" id="lockbox" hidden>
+    <b>Photos protégées</b>
+    <span>Entrez le mot de passe des photos. Il ne sera demandé qu'une fois sur cette tablette.</span>
+    <input type="password" id="lockPass" autocomplete="off" aria-label="Mot de passe des photos">
+    <button type="button" id="lockOk">OK</button>
+    <span class="m" id="lockMsg"></span>
+  </div>
+</div>
+
+<div class="start" id="start" hidden><div><b>Touchez l'écran pour commencer</b><span>Plein écran · écran toujours allumé</span></div></div>
+
+<div class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="ptitle">
+  <div class="sheet">
+    <h2 id="ptitle">Photos et rappels</h2>
+
+    <div id="setup" hidden>
+      <p>Première fois sur cet ordinateur : collez votre <b>code d'accès GitHub</b>. Il reste enregistré sur cet ordinateur seulement. Ne le mettez pas sur la tablette.</p>
+      <div class="fields col">
+        <label>Nom d'utilisateur GitHub <input type="text" id="ghOwner" autocomplete="off" spellcheck="false"></label>
+        <label>Nom du dépôt <input type="text" id="ghRepo" autocomplete="off" spellcheck="false" placeholder="meteo-tablette"></label>
+        <label>Code d'accès <input type="password" id="ghToken" autocomplete="off" spellcheck="false" placeholder="github_pat_…"></label>
+      </div>
+      <div class="row"><button type="button" class="primary" id="ghSave">Connecter</button><button type="button" class="close">Fermer</button></div>
+      <div class="sub" id="setupInfo"></div>
+    </div>
+
+    <div id="unlock" hidden>
+      <p>Vos photos sont protégées par un mot de passe. Entrez-le pour les modifier.</p>
+      <div class="fields"><input type="password" id="unlockPass" autocomplete="off" aria-label="Mot de passe des photos"><button type="button" class="primary" id="unlockBtn">Déverrouiller</button><button type="button" class="close">Fermer</button></div>
+      <div class="sub" id="unlockInfo"></div>
+    </div>
+
+    <div id="editor" hidden>
+      <section>
+        <h3>Photos</h3>
+        <p>Pour chaque photo : la <b>date</b> (un jour ou une période), le <b>moment</b> — matin (6 h à 12 h), après-midi (12 h à 17 h), soir (17 h à 21 h), nuit (21 h à 6 h) — et, si vous voulez, un <b>message</b> qui s'affiche avec elle. Les photos <b>sans date</b> servent les jours où rien n'est prévu. S'il y en a plusieurs, elles passent au hasard.</p>
+        <label class="drop" id="drop">
+          <input type="file" id="fileIn" accept="image/*" multiple>
+          <b>Choisir des photos</b>
+          <span>ou glissez-les ici depuis votre ordinateur</span>
+        </label>
+        <div class="row"><button type="button" id="selAll">Tout cocher</button><span class="hint">Cochez plusieurs photos pour les régler toutes en même temps.</span></div>
+        <div class="bulk" id="bulk" hidden>
+          <b id="bulkCount"></b>
+          <div class="fields">
+            <label>Le / du <input type="date" id="bFrom"></label>
+            <label>au <input type="date" id="bTo"></label>
+            <label><input type="checkbox" id="bYearly" checked> Chaque année</label>
+          </div>
+          <div class="fields"><span class="lbl">Moment :</span>
+            <label><input type="checkbox" data-bpart="matin"> Matin</label><label><input type="checkbox" data-bpart="apresmidi"> Après-midi</label>
+            <label><input type="checkbox" data-bpart="soir"> Soir</label><label><input type="checkbox" data-bpart="nuit"> Nuit</label></div>
+          <div class="fields">
+            <button type="button" class="primary" id="bApply">Appliquer cette date et ce moment</button>
+            <button type="button" id="bTaken">Utiliser leur date de prise de vue</button>
+            <label>Cadrage <select id="bFit"><option value="">— ne pas changer —</option><option value="auto">Automatique</option><option value="fill">Remplir l'écran</option><option value="whole">Photo entière</option></select></label>
+            <button type="button" id="bRemove">Retirer ces photos</button>
+            <button type="button" id="bNone">Tout décocher</button>
+          </div>
+        </div>
+        <div class="thumbs" id="thumbs"></div>
+        <div class="row fields">
+          <label for="preview">Voir ce que la tablette montrera le</label>
+          <input type="date" id="preview">
+          <select id="previewPart" aria-label="Moment"><option value="">maintenant</option><option value="matin">le matin</option><option value="apresmidi">l'après-midi</option><option value="soir">le soir</option><option value="nuit">la nuit</option></select>
+          <button type="button" id="previewReset">Aujourd'hui</button>
+        </div>
+        <div class="sub" id="pday"></div>
+        <div class="row">
+          <label for="speed">Changer de photo toutes les</label>
+          <select id="speed">
+            <option value="10">10 secondes</option>
+            <option value="30">30 secondes</option>
+            <option value="60">1 minute</option>
+            <option value="300">5 minutes (recommandé)</option>
+            <option value="600">10 minutes</option>
+            <option value="900">15 minutes</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h3>Calendrier</h3>
+        <p>En orange : jours avec des photos prévues. Point blanc : un message. Trait bleu : un rappel. Touchez un jour pour voir ce que la tablette montrera.</p>
+        <div class="row"><select id="calYear" aria-label="Année"></select></div>
+        <div class="cal" id="cal"></div>
+      </section>
+
+      <section class="sec">
+        <h3>Rappels</h3>
+        <p>Un rappel s'affiche <b>la veille à partir de 16 h</b> (« Demain : Ordures ») et <b>le jour même jusqu'à midi</b> (« Aujourd'hui : Ordures »). Indiquez la prochaine date, puis la fréquence.</p>
+        <div id="rems"></div>
+        <div class="row"><span class="lbl">Ajouter :</span>
+          <button type="button" data-preset="Ordures">Ordures</button><button type="button" data-preset="Recyclage">Recyclage</button>
+          <button type="button" data-preset="Compost">Compost</button><button type="button" data-preset="Résidus verts">Résidus verts</button>
+          <button type="button" data-preset="" id="addRem">Autre…</button></div>
+      </section>
+
+      <section class="sec">
+        <h3>Confidentialité</h3>
+        <p id="lockState"></p>
+        <div class="fields">
+          <label>Mot de passe des photos <input type="password" id="newPass" autocomplete="new-password"></label>
+          <button type="button" id="applyPass">Protéger avec ce mot de passe</button>
+          <button type="button" id="removePass">Retirer le mot de passe</button>
+        </div>
+        <div class="sub" id="passInfo"></div>
+      </section>
+
+      <div class="row sec">
+        <button type="button" class="primary" id="publish">Publier vers la tablette</button>
+        <button type="button" class="close">Fermer</button>
+        <button type="button" id="ghForget">Changer de code d'accès</button>
+      </div>
+      <div class="sub" id="pinfo"></div>
+    </div>
+    <div class="undo" id="undo" hidden><span id="undoText"></span><button type="button" id="undoBtn">Annuler</button></div>
+  </div>
+</div>
+
+<video id="nosleep" muted playsinline loop preload="auto" style="position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:0;top:0" src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAXEbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAB9AAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAAAl10cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAB9AAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAfQAAAAAAABAAAAAAHVbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAAAgABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABgG1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAUBzdGJsAAAAvHN0c2QAAAAAAAAAAQAAAKxhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAAMmF2Y0MBZAAK/+EAF2dkAAqs2V7ARAAAAwAEAAADAAg8SJZYAQAEaO+8sP34+AAAAAAQcGFzcAAAAAEAAAABAAAAFGJ0cnQAAAAAAAALhAAAC4QAAAAYc3R0cwAAAAAAAAABAAAAAgAAQAAAAAAUc3RzcwAAAAAAAAABAAAAAQAAABxzdHNjAAAAAAAAAAEAAAABAAAAAQAAAAEAAAAcc3RzegAAAAAAAAAAAAAAAgAAAtQAAAANAAAAGHN0Y28AAAAAAAAAAgAABgkAAAj9AAACkXRyYWsAAABcdGtoZAAAAAMAAAAAAAAAAAAAAAIAAAAAAAAH0AAAAAAAAAAAAAAAAQEAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAACRlZHRzAAAAHGVsc3QAAAAAAAAAAQAAB9AAAAQAAAEAAAAAAgltZGlhAAAAIG1kaGQAAAAAAAAAAAAAAAAAAB9AAABCgFXEAAAAAAAtaGRscgAAAAAAAAAAc291bgAAAAAAAAAAAAAAAFNvdW5kSGFuZGxlcgAAAAG0bWluZgAAABBzbWhkAAAAAAAAAAAAAAAkZGluZgAAABxkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAF4c3RibAAAAH5zdHNkAAAAAAAAAAEAAABubXA0YQAAAAAAAAABAAAAAAAAAAAAAQAQAAAAAB9AAAAAAAA2ZXNkcwAAAAADgICAJQACAASAgIAXQBUAAAAAAB9AAAABPwWAgIAFFYhW5QAGgICAAQIAAAAUYnRydAAAAAAAAB9AAAABPwAAACBzdHRzAAAAAAAAAAIAAAAQAAAEAAAAAAEAAAKAAAAAKHN0c2MAAAAAAAAAAgAAAAEAAAABAAAAAQAAAAIAAAAIAAAAAQAAAFhzdHN6AAAAAAAAAAAAAAARAAAAFQAAAAQAAAAEAAAABAAAAAQAAAAEAAAABAAAAAQAAAAEAAAABAAAAAQAAAAEAAAABAAAAAQAAAAEAAAABAAAAAQAAAAcc3RjbwAAAAAAAAADAAAF9AAACN0AAAkKAAAAGnNncGQBAAAAcm9sbAAAAAIAAAAB//8AAAAcc2JncAAAAAByb2xsAAAAAQAAABEAAAABAAAAYnVkdGEAAABabWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAbWRpcmFwcGwAAAAAAAAAAAAAAAAtaWxzdAAAACWpdG9vAAAAHWRhdGEAAAABAAAAAExhdmY2MC4xNi4xMDAAAAAIZnJlZQAAAz5tZGF03gIATGF2YzYwLjMxLjEwMgACMEAOAAACuQYF//+13EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE2NCByMzEwOCAzMWUxOWY5IC0gSC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMtMjAyMyAtIGh0dHA6Ly93d3cudmlkZW9sYW4ub3JnL3gyNjQuaHRtbCAtIG9wdGlvbnM6IGNhYmFjPTEgcmVmPTEgZGVibG9jaz0xOi0zOi0zIGFuYWx5c2U9MHgzOjB4MyBtZT1oZXggc3VibWU9MiBwc3k9MSBwc3lfcmQ9Mi4wMDowLjcwIG1peGVkX3JlZj0wIG1lX3JhbmdlPTE2IGNocm9tYV9tZT0xIHRyZWxsaXM9MCA4eDhkY3Q9MSBjcW09MCBkZWFkem9uZT0yMSwxMSBmYXN0X3Bza2lwPTEgY2hyb21hX3FwX29mZnNldD0wIHRocmVhZHM9MSBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRzPTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgc3RpdGNoYWJsZT0xIGNvbnN0cmFpbmVkX2ludHJhPTAgYmZyYW1lcz0zIGJfcHlyYW1pZD0yIGJfYWRhcHQ9MSBiX2JpYXM9MCBkaXJlY3Q9MSB3ZWlnaHRiPTEgb3Blbl9nb3A9MCB3ZWlnaHRwPTEga2V5aW50PTI1MCBrZXlpbnRfbWluPTEgc2NlbmVjdXQ9NDAgaW50cmFfcmVmcmVzaD0wIHJjX2xvb2thaGVhZD0xMCByYz1jcmYgbWJ0cmVlPTEgY3JmPTIzLjAgcWNvbXA9MC42MCBxcG1pbj0wIHFwbWF4PTY5IHFwc3RlcD00IGlwX3JhdGlvPTEuNDAgYXE9MToxLjIwAIAAAAATZYiEABrOf+z/wlX/2PZEor//8QEYIAcBGCAHARggBwEYIAcBGCAHARggBwEYIAcBGCAHAAAACUGaIRiDWc/+8AEYIAcBGCAHARggBwEYIAcBGCAHARggBwEYIAcBGCAH"></video>
+<script>
+{
+const $=id=>document.getElementById(id);
+const HOME={lat:45.6533,lon:-73.5772,name:'Rivière-des-Prairies'};
+let loc={...HOME};
+const CODES={0:'Ciel dégagé',1:'Plutôt dégagé',2:'Partiellement nuageux',3:'Nuageux',45:'Brouillard',48:'Brouillard givrant',
+51:'Bruine légère',53:'Bruine',55:'Bruine forte',56:'Bruine verglaçante',57:'Bruine verglaçante forte',
+61:'Pluie légère',63:'Pluie',65:'Pluie forte',66:'Pluie verglaçante',67:'Pluie verglaçante forte',
+71:'Neige légère',73:'Neige',75:'Neige forte',77:'Grains de neige',80:'Averses légères',81:'Averses',82:'Averses fortes',
+85:'Averses de neige',86:'Fortes averses de neige',95:'Orage',96:'Orage avec grêle',99:'Orage violent avec grêle'};
+const cond=c=>CODES[c]||'—';
+const r=n=>{const x=Math.round(n);return x===0?0:x};
+const fmtT=n=>r(n)+'°';
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const isoOf=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const okDate=v=>/^\d{4}-\d{2}-\d{2}$/.test(v||'');
+const hm=d=>d.getHours()+' h '+pad(d.getMinutes());
+const hmIso=t=>{const h=+t.slice(11,13),m=t.slice(14,16);return h+' h '+m};
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function lsDel(k){try{localStorage.removeItem(k)}catch(e){}}
+let toastT=null;
+function showMsg(t){const m=$('msg');m.textContent=t;m.classList.toggle('show',!!t);clearTimeout(toastT);if(t)toastT=setTimeout(()=>m.classList.remove('show'),8000)}
+
+/* ================= Météo ================= */
+let lastOk=0,failed=false,weatherAlerts=[];
+function humidex(t,td){if(t==null||td==null)return null;return t+0.5555*(6.11*Math.exp(5417.7530*(1/273.16-1/(273.15+td)))-10)}
+async function load(){
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}`+
+   `&current=temperature_2m,apparent_temperature,relative_humidity_2m,dew_point_2m,wind_speed_10m,wind_gusts_10m,weather_code,is_day`+
+   `&hourly=weather_code,snowfall,apparent_temperature`+
+   `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset`+
+   `&timezone=America%2FToronto&forecast_days=2&wind_speed_unit=kmh`;
+  let ctl=null,tm=null;
+  try{
+    if(window.AbortController){ctl=new AbortController();tm=setTimeout(()=>ctl.abort(),15000)}
+    const res=await fetch(url,ctl?{signal:ctl.signal}:{});
+    if(!res.ok)throw new Error(res.status);
+    render(await res.json());
+    lastOk=Date.now();failed=false;
+  }catch(e){
+    failed=true;
+    $('updated').textContent=lastOk?'Météo mise à jour à '+hm(new Date(lastOk))+' (connexion perdue)':'Météo non disponible';
+  }
+  clearTimeout(tm);drawPills();
+}
+function render(d){
+  const c=d.current,D=d.daily,H=d.hourly;
+  $('place').textContent=loc.name;
+  $('temp').innerHTML=esc(r(c.temperature_2m))+'<small>°C</small>';
+  $('cond').textContent=cond(c.weather_code);
+  $('wxicon').innerHTML=wxIcon(c.weather_code,c.is_day!==0);
+  setBg(c.weather_code,c.is_day!==0,c.temperature_2m);
+  const f=r(c.apparent_temperature);
+  $('feels').textContent=f!==r(c.temperature_2m)?'Ressenti '+f+'°':'';
+  $('mm').innerHTML=`Max <b>${esc(fmtT(D.temperature_2m_max[0]))}</b> &nbsp;·&nbsp; Min <b>${esc(fmtT(D.temperature_2m_min[0]))}</b>`;
+  $('hum').innerHTML=c.relative_humidity_2m!=null?`Humidité extérieure <b>${esc(r(c.relative_humidity_2m))} %</b>`:'';
+  const pp=D.precipitation_probability_max[1];
+  $('tmw').textContent=`Demain : ${fmtT(D.temperature_2m_max[1])} / ${fmtT(D.temperature_2m_min[1])}, ${cond(D.weather_code[1]).toLowerCase()}`+(pp>=40?` (${pp} %)`:'');
+  $('sun').textContent=D.sunrise&&D.sunrise[0]?` · Soleil ${hmIso(D.sunrise[0])} à ${hmIso(D.sunset[0])}`:'';
+  $('updated').textContent='Météo mise à jour à '+hm(new Date());
+  // ----- Alertes -----
+  const A=[],today=c.time.slice(0,10);
+  const start=Math.max(0,H.time.findIndex(t=>t.slice(0,13)===c.time.slice(0,13)));
+  const next=n=>{const a=[];for(let i=start;i<Math.min(H.time.length,start+n);i++)a.push(i);return a};
+  const when=t=>(t.slice(0,10)!==today?'demain ':'')+'vers '+(+t.slice(11,13))+' h';
+  const ICE=[56,57,66,67],STORM=[95,96,99];
+  if(ICE.includes(c.weather_code))A.push(['danger','Verglas en ce moment']);
+  else{const i=next(12).find(i=>ICE.includes(H.weather_code[i]));if(i!=null)A.push(['danger','Verglas prévu '+when(H.time[i])])}
+  if(STORM.includes(c.weather_code))A.push(['danger','Orage en cours']);
+  else{const i=next(6).find(i=>STORM.includes(H.weather_code[i]));if(i!=null)A.push(['warn','Orages possibles '+when(H.time[i])])}
+  if(c.apparent_temperature<=-25)A.push(['danger','Froid extrême · ressenti '+r(c.apparent_temperature)+'°']);
+  else{const m=Math.min(...next(12).map(i=>H.apparent_temperature[i]).filter(v=>v!=null));if(m<=-25)A.push(['warn','Froid extrême prévu · ressenti '+r(m)+'°'])}
+  const ws=r(c.wind_speed_10m),wg=r(c.wind_gusts_10m);
+  if(ws>=40||wg>=60)A.push(['warn','Très venteux · rafales '+Math.max(ws,wg)+' km/h']);
+  const cm=next(24).reduce((s,i)=>s+(H.snowfall[i]||0),0);
+  if(cm>=2)A.push(['info','Neige : environ '+Math.round(cm)+' cm d\'ici 24 h']);
+  const hx=humidex(c.temperature_2m,c.dew_point_2m);
+  if(hx!=null&&c.temperature_2m>=20){if(hx>=40)A.push(['danger','Chaleur extrême · humidex '+r(hx)]);else if(hx>=35)A.push(['warn','Chaleur · humidex '+r(hx)])}
+  weatherAlerts=A;
+}
+/* Icônes météo dessinées */
+const ICON={
+ sun:'<g stroke="#ffd43b" stroke-width="4" stroke-linecap="round"><path d="M32 6v7M32 51v7M6 32h7M51 32h7M13.6 13.6l5 5M45.4 45.4l5 5M13.6 50.4l5-5M45.4 18.6l5-5"/></g><circle cx="32" cy="32" r="12" fill="#ffd43b"/>',
+ moon:'<path d="M38 10a22 22 0 1 0 16 34A18 18 0 0 1 38 10z" fill="#ffe8a3"/>',
+ cloud:'<path d="M17 48h31a11 11 0 0 0 0-22 15 15 0 0 0-29-3 10 10 0 0 0-2 25z" fill="#fff"/><path d="M17 48h31a11 11 0 0 0 9-4H12a10 10 0 0 0 5 4z" fill="#d8e1e8"/>',
+ rain:'<g stroke="#74c0fc" stroke-width="4" stroke-linecap="round"><path d="M22 50l-3 8M33 50l-3 8M44 50l-3 8"/></g>',
+ ice:'<g stroke="#74c0fc" stroke-width="4" stroke-linecap="round"><path d="M22 50l-3 8M44 50l-3 8"/></g><g stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M32 49v10M27.7 51.5l8.6 5M27.7 56.5l8.6-5"/></g>',
+ snow:'<g stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M20 49v9M16.1 51.2l7.8 4.6M16.1 55.8l7.8-4.6M33 51v9M29.1 53.2l7.8 4.6M29.1 57.8l7.8-4.6M46 49v9M42.1 51.2l7.8 4.6M42.1 55.8l7.8-4.6"/></g>',
+ bolt:'<path d="M34 44l-8 12h7l-3 8 11-13h-7l4-7z" fill="#ffd43b"/>',
+ fog:'<g stroke="#e9eef2" stroke-width="4" stroke-linecap="round"><path d="M12 50h40M18 57h30"/></g>'};
+function wxIcon(c,day){
+  const up='<g transform="translate(0 -7)">'+ICON.cloud+'</g>',small=(day?'<g transform="translate(2 2) scale(.62)">'+ICON.sun+'</g>':'<g transform="translate(4 2) scale(.6)">'+ICON.moon+'</g>');
+  let g;
+  if(c<=1)g=day?ICON.sun:ICON.moon;
+  else if(c===2)g=small+'<g transform="translate(6 4) scale(.85)">'+ICON.cloud+'</g>';
+  else if(c===3)g=ICON.cloud;
+  else if(c===45||c===48)g=up+ICON.fog;
+  else if([56,57,66,67].includes(c))g=up+ICON.ice;
+  else if([71,73,75,77,85,86].includes(c))g=up+ICON.snow;
+  else if(c>=95)g=up+ICON.bolt;
+  else g=up+ICON.rain;
+  return '<svg viewBox="0 0 64 64">'+g+'</svg>';
+}
+function setBg(c,day,t){
+  let k;
+  if(c>=95)k='storm';else if([71,73,75,77,85,86].includes(c))k='snow';
+  else if(c>=51)k='rain';else if(c===3||c===45||c===48)k='cloud';
+  else if(!day)k='night';else if(t>=25)k='hot';else if(t<=-10)k='cold';else k='clear';
+  const root=document.documentElement;
+  root.className=root.className.replace(/\bbg-\w+/g,'').trim();root.classList.add('bg-'+k);
+}
+function staleText(){
+  if(!lastOk&&failed)return 'Météo non disponible · vérifiez le Wi-Fi';
+  if(lastOk&&Date.now()-lastOk>25*60*1000)return 'Pas de connexion · météo de '+hm(new Date(lastOk));
+  return '';
+}
+function drawPills(){
+  const items=[];const st=staleText();if(st)items.push(['stale',st]);
+  weatherAlerts.slice(0,3).forEach(a=>items.push(a));
+  activeReminders().forEach(t=>items.push(['rem',t]));
+  $('pills').innerHTML=items.slice(0,5).map(([k,t])=>`<span class="pill ${k}">${esc(t)}</span>`).join('');
+}
+
+/* ================= Rappels ================= */
+const FREQ=[['once','Une seule fois'],['week','Chaque semaine'],['2weeks','Aux 2 semaines'],['month','Chaque mois']];
+const dayNum=iso=>Math.round(Date.UTC(+iso.slice(0,4),+iso.slice(5,7)-1,+iso.slice(8,10))/864e5);
+function occurs(rm,iso){
+  if(!okDate(rm.date)||!rm.text)return false;
+  const d=dayNum(iso)-dayNum(rm.date);if(d<0)return false;
+  if(rm.freq==='week')return d%7===0;
+  if(rm.freq==='2weeks')return d%14===0;
+  if(rm.freq==='month')return iso.slice(8)===rm.date.slice(8);
+  return d===0;
+}
+function activeReminders(){
+  const now=new Date(),h=now.getHours(),t=isoOf(now),tm=isoOf(new Date(now.getFullYear(),now.getMonth(),now.getDate()+1));
+  const out=[];
+  for(const rm of store.reminders){
+    if(h<12&&occurs(rm,t))out.push("Aujourd'hui : "+rm.text);
+    else if(h>=16&&occurs(rm,tm))out.push('Demain : '+rm.text);
+  }
+  return out;
+}
+
+/* ================= Chiffrement (mot de passe des photos) ================= */
+const TE=new TextEncoder(),TD=new TextDecoder();
+const b64e=u8=>{let s='';for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s)};
+const b64d=b=>Uint8Array.from(atob(String(b).replace(/\s/g,'')),c=>c.charCodeAt(0));
+const keyCache=new Map();
+async function keyFor(pass,saltB64){
+  const id=saltB64+'|'+pass;if(keyCache.has(id))return keyCache.get(id);
+  const base=await crypto.subtle.importKey('raw',TE.encode(pass),'PBKDF2',false,['deriveKey']);
+  const k=await crypto.subtle.deriveKey({name:'PBKDF2',salt:b64d(saltB64),iterations:150000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+  keyCache.set(id,k);return k;
+}
+async function encBytes(key,u8){const iv=crypto.getRandomValues(new Uint8Array(12));const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,u8));const o=new Uint8Array(12+ct.length);o.set(iv);o.set(ct,12);return o}
+async function decBytes(key,u8){return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:u8.subarray(0,12)},key,u8.subarray(12)))}
+let lock={salt:null,pass:'',key:null};
+async function openManifest(obj){
+  if(obj&&obj.locked){
+    const pass=lsGet('meteoPass');
+    if(!pass)throw{needPass:true};
+    try{
+      const key=await keyFor(pass,obj.locked.salt);
+      const data=JSON.parse(TD.decode(await decBytes(key,b64d(obj.locked.data))));
+      lock={salt:obj.locked.salt,pass,key};return clean(data);
+    }catch(e){throw{needPass:true,wrong:true}}
+  }
+  lock={salt:null,pass:'',key:null};return clean(obj||{});
+}
+
+/* ================= Photos ================= */
+let store={speed:300,photos:[],reminders:[]};
+let removed=[],dirty=false,timer=null,front='imgA',previewDay='',previewPart='',shownKey='',slideTok=0,syncPauseUntil=0,pendingPass=null;
+const okFile=f=>/^photos\/[\w.-]+\.(jpe?g|png|webp|bin)$/i.test(f||'');
+const PARTS=[['matin','Matin','6 h à 12 h'],['apresmidi','Après-midi','12 h à 17 h'],['soir','Soir','17 h à 21 h'],['nuit','Nuit','21 h à 6 h']];
+const PART_KEYS=PARTS.map(x=>x[0]);
+function partOf(h){return h>=6&&h<12?'matin':h>=12&&h<17?'apresmidi':h>=17&&h<21?'soir':'nuit'}
+function curPart(){return previewPart||partOf(new Date().getHours())}
+const partName=k=>(PARTS.find(x=>x[0]===k)||['',''])[1];
+const fits=(p,pt)=>!p.parts||!p.parts.length||p.parts.includes(pt);
+function clean(m){
+  const ph=Array.isArray(m.photos)?m.photos:[],rs=Array.isArray(m.reminders)?m.reminders:[];
+  return{speed:[10,30,60,300,600,900].includes(+m.speed)?+m.speed:300,
+    photos:ph.filter(p=>p&&okFile(p.file)).map(p=>({file:p.file,sha:String(p.sha||''),name:String(p.name||''),enc:!!p.enc,
+      from:okDate(p.from)?p.from:'',to:okDate(p.to)?p.to:'',yearly:p.yearly!==false,msg:String(p.msg||'').slice(0,80),
+      parts:Array.isArray(p.parts)?p.parts.filter(k=>PART_KEYS.includes(k)):[],
+      fit:['auto','fill','whole'].includes(p.fit)?p.fit:'auto',taken:okDate(p.taken)?p.taken:''})),
+    reminders:rs.filter(x=>x&&x.text).map(x=>({text:String(x.text).slice(0,40),date:okDate(x.date)?x.date:'',freq:FREQ.some(f=>f[0]===x.freq)?x.freq:'week'}))};
+}
+const blobCache=new Map();
+async function srcFor(p){
+  if(p.local)return p.local;
+  if(p.src)return p.src;
+  if(!okFile(p.file))return '';
+  const url=p.file+'?v='+encodeURIComponent(String(p.sha||'').slice(0,10));
+  if(!p.enc)return url;
+  if(blobCache.has(p.file))return blobCache.get(p.file);
+  if(!lock.key)return '';
+  const res=await fetch(url);if(!res.ok)return '';
+  const raw=await decBytes(lock.key,new Uint8Array(await res.arrayBuffer()));
+  const u=URL.createObjectURL(new Blob([raw],{type:'image/jpeg'}));blobCache.set(p.file,u);return u;
+}
+function todayIso(){return previewDay||isoOf(new Date())}
+function niceDate(iso,withYear){const d=new Date(iso+'T12:00:00');
+  return d.toLocaleDateString('fr-CA',withYear?{weekday:'long',day:'numeric',month:'long',year:'numeric'}:{day:'numeric',month:'long'})}
+function matches(p,iso){
+  if(!okDate(p.from))return false;
+  const to=okDate(p.to)?p.to:p.from;
+  if(p.yearly===false)return iso>=p.from&&iso<=(to<p.from?p.from:to);
+  const a=p.from.slice(5),b=to.slice(5),x=iso.slice(5);
+  return a<=b?(x>=a&&x<=b):(x>=a||x<=b);
+}
+function listFor(iso,pt){
+  pt=pt||curPart();
+  const dated=store.photos.filter(p=>matches(p,iso)),undated=store.photos.filter(p=>!okDate(p.from));
+  const tries=[[dated.filter(p=>fits(p,pt)),'date'],[undated.filter(p=>fits(p,pt)),'def'],[dated,'date'],[undated,'def']];
+  for(const [list,kind] of tries)if(list.length)return{kind,list};
+  return{kind:'def',list:[]};
+}
+let bag=[],lastShown=null;
+function nextPhoto(list){
+  if(!bag.length){
+    bag=list.map((_,i)=>i);
+    for(let i=bag.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[bag[i],bag[j]]=[bag[j],bag[i]]}
+    if(bag.length>1&&list[bag[0]]===lastShown)bag.push(bag.shift());
+  }
+  return list[bag.shift()];
+}
+async function showSlide(){
+  const {list}=listFor(todayIso());
+  document.documentElement.classList.toggle('has-photos',list.length>0);
+  const tok=++slideTok;
+  if(!list.length){$('imgA').classList.remove('on');$('imgB').classList.remove('on');setBanner('');return}
+  const p=nextPhoto(list);lastShown=p;
+  let src='';try{src=await srcFor(p)}catch(e){}
+  if(tok!==slideTok)return;
+  if(!src){if(list.length>1)setTimeout(showSlide,1500);return}
+  const back=front==='imgA'?'imgB':'imgA',layer=$(back),fg=layer.querySelector('.fg'),bg=layer.querySelector('.bg');
+  fg.onload=()=>{
+    if(tok!==slideTok)return;
+    const portrait=fg.naturalHeight>fg.naturalWidth*1.05;
+    const whole=p.fit==='whole'||(p.fit!=='fill'&&portrait);
+    layer.classList.toggle('whole',whole);if(whole)bg.src=src;
+    layer.style.setProperty('--kbdur',(store.speed+5)+'s');
+    fg.style.animation='none';void fg.offsetWidth;fg.style.animation='';
+    layer.classList.add('on');$(front).classList.remove('on');front=back;setBanner(p.msg);
+  };
+  fg.onerror=()=>{if(list.length>1)setTimeout(showSlide,1500)};
+  fg.src=src;
+}
+function setBanner(t){$('banner').textContent=t||'';$('banner').hidden=!t}
+function startShow(){
+  clearInterval(timer);bag=[];showSlide();
+  shownKey=todayIso()+'|'+curPart();
+  if(listFor(todayIso()).list.length>1)timer=setInterval(showSlide,store.speed*1000);
+}
+$('slides').addEventListener('click',()=>{if(listFor(todayIso()).list.length>1)startShow()});
+
+/* La tablette vérifie toutes les 3 minutes s'il y a du nouveau */
+let lastManifestText='';
+async function syncFromSite(force){
+  if(!force&&(dirty||$('panel').classList.contains('open')||Date.now()<syncPauseUntil))return;
+  try{
+    const res=await fetch('photos/manifest.json?t='+Date.now(),{cache:'no-store'});
+    if(!res.ok)return;
+    const txt=await res.text();
+    if(txt===lastManifestText)return;
+    let m;
+    try{m=await openManifest(JSON.parse(txt))}
+    catch(e){if(e&&e.needPass)showLock(e.wrong);return}
+    lastManifestText=txt;$('lockbox').hidden=true;applyStore(m);
+  }catch(e){}
+}
+function applyStore(m){
+  for(const [f,u] of blobCache)if(!m.photos.some(p=>p.file===f)){URL.revokeObjectURL(u);blobCache.delete(f)}
+  store=m;startShow();drawPills();
+}
+function showLock(wrong){
+  if($('panel').classList.contains('open'))return;
+  $('lockbox').hidden=false;$('lockMsg').textContent=wrong?'Mot de passe incorrect ou changé. Réessayez.':'';
+}
+$('lockOk').addEventListener('click',()=>{const v=$('lockPass').value;if(!v)return;lsSet('meteoPass',v);$('lockPass').value='';$('lockMsg').textContent='Vérification…';lastManifestText='';syncFromSite(true)});
+$('lockPass').addEventListener('keydown',e=>{if(e.key==='Enter')$('lockOk').click()});
+
+/* ================= Connexion GitHub (PC seulement) ================= */
+const SITE=(()=>{const m=location.hostname.match(/^([^.]+)\.github\.io$/i);if(!m)return null;
+  const seg=location.pathname.split('/').filter(Boolean)[0];return{owner:m[1],repo:seg&&!/\.html?$/i.test(seg)?seg:m[1]+'.github.io'}})();
+let cfg=null;try{cfg=JSON.parse(lsGet('meteoGitHub')||'null')}catch(e){}
+async function gh(path,opt){
+  opt=opt||{};
+  const res=await fetch(`https://api.github.com/repos/${encodeURIComponent(cfg.owner)}/${encodeURIComponent(cfg.repo)}/contents/${path}`,{
+    method:opt.method||'GET',cache:'no-store',
+    headers:{Authorization:'Bearer '+cfg.token,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},
+    body:opt.body?JSON.stringify(opt.body):undefined});
+  if(res.status===404&&opt.allow404)return null;
+  if(!res.ok){const e=new Error('GitHub '+res.status);e.status=res.status;throw e}
+  return res.json();
+}
+function ghError(e){
+  if(e&&e.status===401)return "Code d'accès refusé ou expiré. Cliquez sur « Changer de code d'accès ».";
+  if(e&&(e.status===403||e.status===404))return "Accès refusé : vérifiez le nom d'utilisateur, le nom du dépôt et que le code a la permission « Contents : Read and write ».";
+  if(e&&(e.status===409||e.status===422))return "Conflit avec une autre modification. Fermez, rouvrez « Photos et rappels » et réessayez.";
+  return "Problème de connexion avec GitHub. Vérifiez Internet et réessayez.";
+}
+const textToB64=t=>b64e(TE.encode(t));
+function showSection(id){['setup','unlock','editor'].forEach(s=>$(s).hidden=s!==id)}
+async function openEditor(){
+  $('panel').classList.add('open');$('lockbox').hidden=true;
+  if(!cfg||!cfg.token){
+    showSection('setup');
+    $('ghOwner').value=(cfg&&cfg.owner)||(SITE&&SITE.owner)||'';
+    $('ghRepo').value=(cfg&&cfg.repo)||(SITE&&SITE.repo)||'meteo-tablette';
+    return;
+  }
+  showSection('editor');
+  if(dirty){drawEditor();return}
+  $('pinfo').textContent='Chargement…';$('thumbs').innerHTML='';$('rems').innerHTML='';
+  try{
+    const f=await gh('photos/manifest.json',{allow404:true});
+    let m={speed:300,photos:[],reminders:[]};
+    if(f){
+      try{m=await openManifest(JSON.parse(TD.decode(b64d(f.content))))}
+      catch(e){if(e&&e.needPass){showSection('unlock');$('unlockInfo').textContent=e.wrong?'Mot de passe incorrect.':'';return}throw e}
+    }else lock={salt:null,pass:'',key:null};
+    store=m;removed=[];pendingPass=null;drawEditor();startShow();drawPills();
+    $('pinfo').textContent=store.photos.length?store.photos.length+' photo(s) en ligne.':'Aucune photo en ligne pour l\'instant.';
+  }catch(e){$('pinfo').textContent=ghError(e)}
+}
+$('unlockBtn').addEventListener('click',()=>{const v=$('unlockPass').value;if(!v)return;lsSet('meteoPass',v);$('unlockPass').value='';openEditor()});
+$('ghSave').addEventListener('click',async()=>{
+  const c={owner:$('ghOwner').value.trim(),repo:$('ghRepo').value.trim(),token:$('ghToken').value.trim()};
+  if(!c.owner||!c.repo||!c.token){$('setupInfo').textContent='Remplissez les trois champs.';return}
+  cfg=c;$('setupInfo').textContent='Vérification…';
+  try{await gh('',{});lsSet('meteoGitHub',JSON.stringify(cfg));$('ghToken').value='';$('setupInfo').textContent='';openEditor()}
+  catch(e){cfg=null;$('setupInfo').textContent=ghError(e)}
+});
+$('ghForget').addEventListener('click',()=>{lsDel('meteoGitHub');cfg=cfg?{owner:cfg.owner,repo:cfg.repo}:null;openEditor()});
+
+/* ================= Édition ================= */
+function resize(file){return new Promise((ok,ko)=>{
+  const u=URL.createObjectURL(file),im=new Image();
+  im.onload=()=>{const M=1600,k=Math.min(1,M/Math.max(im.width,im.height));
+    const cv=document.createElement('canvas');cv.width=Math.round(im.width*k);cv.height=Math.round(im.height*k);
+    cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);URL.revokeObjectURL(u);ok(cv.toDataURL('image/jpeg',.82))};
+  im.onerror=()=>{URL.revokeObjectURL(u);ko()};im.src=u})}
+function exifDate(buf){
+  try{
+    const v=new DataView(buf);if(v.getUint16(0)!==0xFFD8)return '';
+    let o=2;
+    while(o+4<v.byteLength){
+      const m=v.getUint16(o);if((m&0xFF00)!==0xFF00)return '';
+      const len=v.getUint16(o+2);
+      if(m===0xFFE1&&v.getUint32(o+4)===0x45786966){
+        const t=o+10,le=v.getUint16(t)===0x4949,g16=x=>v.getUint16(x,le),g32=x=>v.getUint32(x,le);
+        const str=(q,c)=>{let r='';for(let i=0;i<c-1&&q+i<v.byteLength;i++)r+=String.fromCharCode(v.getUint8(q+i));return r};
+        const ifd=(off,want)=>{const n=g16(t+off),res={};for(let i=0;i<n;i++){const e=t+off+2+i*12,tag=g16(e);
+          if(want.includes(tag)){const type=g16(e+2),cnt=g32(e+4);res[tag]=type===2?str(cnt>4?t+g32(e+8):e+8,cnt):g32(e+8)}}return res};
+        const i0=ifd(g32(t+4),[0x8769,0x0132]);let d='';
+        if(i0[0x8769]){const ex=ifd(i0[0x8769],[0x9003,0x9004]);d=ex[0x9003]||ex[0x9004]||''}
+        d=d||i0[0x0132]||'';
+        const mm=/^(\d{4}):(\d{2}):(\d{2})/.exec(d);
+        return mm&&mm[1]!=='0000'?mm[1]+'-'+mm[2]+'-'+mm[3]:'';
+      }
+      if(m===0xFFDA)return '';
+      o+=2+len;
+    }
+  }catch(e){}
+  return '';
+}
+async function addFiles(files){
+  const bad=[];let n=0;
+  $('pinfo').textContent='Préparation des photos…';
+  for(const f of files){
+    if(!/^image\//.test(f.type)&&!/\.(jpe?g|png|webp|gif|bmp)$/i.test(f.name)){bad.push(f.name);continue}
+    try{let taken='';try{taken=exifDate(await f.arrayBuffer())}catch(e){}
+      store.photos.push({src:await resize(f),name:f.name,from:'',to:'',yearly:true,parts:[],msg:'',fit:'auto',taken});n++}catch(e){bad.push(f.name)}
+  }
+  if(n)dirty=true;
+  drawThumbs();startShow();
+  $('pinfo').textContent=(n?n+' photo(s) ajoutée(s) — réglez-les, puis cliquez sur « Publier ». ':'')+(bad.length?'Non lisible(s) : '+bad.join(', ')+' (format HEIC non pris en charge, convertissez en JPEG).':'');
+}
+function dateText(p){
+  if(!okDate(p.from))return 'Sans date — photo par défaut';
+  const y=p.yearly!==false,to=okDate(p.to)&&p.to!==p.from?p.to:'';
+  const f=d=>niceDate(d,!y);
+  return (to?'Du '+f(p.from)+' au '+f(to):'Le '+f(p.from))+(y?', chaque année':'');
+}
+function whenText(p){
+  const m=p.parts&&p.parts.length&&p.parts.length<4?' · '+PART_KEYS.filter(k=>p.parts.includes(k)).map(partName).join(', '):' · toute la journée';
+  return dateText(p)+m;
+}
+function drawDay(){
+  const iso=todayIso(),r=listFor(iso);
+  $('pday').textContent=(previewDay?'Le '+niceDate(iso,true):"Aujourd'hui")+', '+partName(curPart()).toLowerCase()+' : '+
+    (r.list.length?r.list.length+(r.kind==='date'?' photo(s) prévue(s) pour ce moment.':' photo(s) par défaut.'):'aucune photo à afficher.');
+  [...document.querySelectorAll('.thumb')].forEach(el=>el.classList.toggle('today',r.list.includes(store.photos[+el.dataset.i])));
+}
+let picked=new Set();
+function drawThumbs(){
+  const t=$('thumbs');
+  for(const p of [...picked])if(!store.photos.includes(p))picked.delete(p);
+  t.innerHTML=store.photos.length?store.photos.map((p,i)=>`<div class="thumb${picked.has(p)?' picked':''}" data-i="${i}">
+      <div><img alt="${esc(p.name||'Photo')}"><label class="sel"><input type="checkbox" data-sel ${picked.has(p)?'checked':''}> Cocher</label></div>
+      <div><div class="when${okDate(p.from)?'':' def'}">${esc(whenText(p))}</div>${p.src?'<span class="new">à publier</span>':''}
+        ${p.taken?`<div class="taken">Photo prise le ${esc(niceDate(p.taken,true).replace(/^\S+ /,''))} <button type="button" class="rm" data-souv="${i}">En faire un souvenir chaque année</button></div>`:''}
+        <div class="fields">
+          <label>Le / du <input type="date" data-k="from" value="${okDate(p.from)?esc(p.from):''}"></label>
+          <label>au (facultatif) <input type="date" data-k="to" value="${okDate(p.to)?esc(p.to):''}"></label>
+          <label><input type="checkbox" data-k="yearly" ${p.yearly!==false?'checked':''}> Chaque année</label>
+          <button type="button" class="rm" data-rm="${i}">Retirer</button>
+        </div>
+        <div class="fields parts"><span class="lbl">Moment :</span>${PARTS.map(([k,n,h])=>`<label title="${h}"><input type="checkbox" data-part="${k}" ${p.parts&&p.parts.includes(k)?'checked':''}> ${n}</label>`).join('')}<span class="hint">(rien de coché = toute la journée)</span></div>
+        <div class="fields"><label>Cadrage <select data-k="fit"><option value="auto" ${p.fit!=='fill'&&p.fit!=='whole'?'selected':''}>Automatique</option><option value="fill" ${p.fit==='fill'?'selected':''}>Remplir l'écran</option><option value="whole" ${p.fit==='whole'?'selected':''}>Photo entière</option></select></label></div>
+        <div class="fields"><label class="wide">Message <input type="text" data-k="msg" maxlength="80" placeholder="Facultatif — ex. : Bonne fête Julie !" value="${esc(p.msg||'')}"></label></div>
+      </div></div>`).join('')
+    :'<div class="empty">Aucune photo pour l\'instant.</div>';
+  [...t.querySelectorAll('.thumb')].forEach(el=>{const p=store.photos[+el.dataset.i];srcFor(p).then(u=>{if(u)el.querySelector('img').src=u}).catch(()=>{})});
+  $('speed').value=String(store.speed);
+  $('preview').value=todayIso();
+  drawBulk();drawDay();drawCal();
+}
+function drawBulk(){$('bulk').hidden=!picked.size;$('bulkCount').textContent=picked.size+' photo(s) cochée(s)'}
+/* ----- Calendrier ----- */
+function drawCal(){
+  const sel=$('calYear'),y0=new Date().getFullYear();
+  if(!sel.options.length)sel.innerHTML=[y0,y0+1].map(y=>`<option value="${y}">${y}</option>`).join('');
+  const y=+sel.value||y0,todayS=isoOf(new Date());
+  let h='';
+  for(let m=0;m<12;m++){
+    const first=new Date(y,m,1),days=new Date(y,m+1,0).getDate();
+    h+=`<div class="mon"><b>${esc(first.toLocaleDateString('fr-CA',{month:'long'}))}</b><div class="g">${['D','L','M','M','J','V','S'].map(d=>`<span>${d}</span>`).join('')}`;
+    for(let i=0;i<first.getDay();i++)h+='<span></span>';
+    for(let d=1;d<=days;d++){
+      const iso=y+'-'+pad(m+1)+'-'+pad(d),ph=store.photos.filter(p=>matches(p,iso));
+      const cls=[ph.length?'ph':'',ph.some(p=>p.msg)?'msg':'',store.reminders.some(r=>occurs(r,iso))?'rm2':'',iso===todayS?'today':''].filter(Boolean).join(' ');
+      const tip=ph.length?ph.length+' photo(s)'+(ph.some(p=>p.msg)?' — '+ph.filter(p=>p.msg).map(p=>p.msg).join(' / '):''):'';
+      h+=`<button type="button" class="${cls}" data-day="${iso}" title="${esc(tip)}">${d}</button>`;
+    }
+    h+='</div></div>';
+  }
+  $('cal').innerHTML=h;
+}
+$('calYear').addEventListener('change',drawCal);
+$('cal').addEventListener('click',e=>{const b=e.target.closest('button[data-day]');if(!b)return;
+  const iso=b.dataset.day;previewDay=iso===isoOf(new Date())?'':iso;$('preview').value=iso;drawDay();startShow();
+  $('preview').scrollIntoView({behavior:'smooth',block:'center'})});
+/* ----- Annuler ----- */
+let undoT=null,undoFn=null;
+function offerUndo(text,fn){undoFn=fn;$('undoText').textContent=text;$('undo').hidden=false;clearTimeout(undoT);undoT=setTimeout(()=>{$('undo').hidden=true;undoFn=null},12000)}
+$('undoBtn').addEventListener('click',()=>{if(undoFn){undoFn();undoFn=null}$('undo').hidden=true});
+function drawRems(){
+  $('rems').innerHTML=store.reminders.length?store.reminders.map((m,i)=>`<div class="rem-row" data-r="${i}">
+    <input type="text" data-rk="text" maxlength="40" value="${esc(m.text)}" aria-label="Texte du rappel" placeholder="Ex. : Ordures">
+    <label class="hint">Prochaine date <input type="date" data-rk="date" value="${okDate(m.date)?esc(m.date):''}"></label>
+    <select data-rk="freq" aria-label="Fréquence">${FREQ.map(([k,n])=>`<option value="${k}" ${m.freq===k?'selected':''}>${n}</option>`).join('')}</select>
+    <button type="button" class="rm" data-rr="${i}">Retirer</button></div>`).join('')
+    :'<div class="empty">Aucun rappel.</div>';
+}
+function drawLock(){
+  const s=pendingPass===null?(lock.pass?'<span class="ok">Vos photos sont protégées par un mot de passe.</span>':'<span class="bad">Vos photos ne sont pas protégées</span> : quelqu\'un qui connaît l\'adresse du site pourrait les voir.')
+    :(pendingPass?'Mot de passe prêt — cliquez sur « Publier » pour protéger les photos.':'Retrait du mot de passe prêt — cliquez sur « Publier ».');
+  $('lockState').innerHTML=s;$('removePass').hidden=!lock.pass&&!pendingPass;
+}
+function drawEditor(){drawThumbs();drawRems();drawLock()}
+function removePhotos(list){
+  const saved=list.map(p=>({p,i:store.photos.indexOf(p)})).filter(x=>x.i>=0).sort((a,b)=>a.i-b.i);
+  const rem=[];
+  for(const x of [...saved].reverse()){store.photos.splice(x.i,1);picked.delete(x.p);if(x.p.file){const r={file:x.p.file,sha:x.p.sha};removed.push(r);rem.push(r)}}
+  dirty=true;drawThumbs();startShow();
+  offerUndo(saved.length+' photo(s) retirée(s).',()=>{
+    for(const x of saved)store.photos.splice(Math.min(x.i,store.photos.length),0,x.p);
+    removed=removed.filter(r=>!rem.includes(r));drawThumbs();startShow();
+  });
+}
+$('thumbs').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-rm]');
+  if(b){removePhotos([store.photos[+b.dataset.rm]]);return}
+  const sv=e.target.closest('button[data-souv]');
+  if(sv){const p=store.photos[+sv.dataset.souv];p.from=p.taken;p.to='';p.yearly=true;dirty=true;drawThumbs();startShow()}
+});
+function onThumbEdit(e){
+  const row=e.target.closest('.thumb');
+  if(row&&e.target.hasAttribute('data-sel')){const p=store.photos[+row.dataset.i];if(e.target.checked)picked.add(p);else picked.delete(p);row.classList.toggle('picked',e.target.checked);drawBulk();return}
+  const k=e.target.dataset.k,pt=e.target.dataset.part;if((!k&&!pt)||!row)return;
+  const p=store.photos[+row.dataset.i];
+  if(pt){p.parts=(p.parts||[]).filter(x=>x!==pt);if(e.target.checked)p.parts.push(pt)}
+  else if(k==='yearly')p.yearly=e.target.checked;
+  else if(k==='msg')p.msg=e.target.value.slice(0,80);
+  else if(k==='fit')p.fit=e.target.value;
+  else p[k]=e.target.value;
+  if(k==='from'&&!okDate(p.from))p.to='';
+  dirty=true;
+  const w=row.querySelector('.when');w.textContent=whenText(p);w.classList.toggle('def',!okDate(p.from));
+  if(k!=='msg'){drawDay();drawCal();if(k!=='fit')startShow()}else drawCal();
+}
+$('thumbs').addEventListener('change',onThumbEdit);
+$('thumbs').addEventListener('input',e=>{if(e.target.dataset.k==='msg')onThumbEdit(e)});
+$('rems').addEventListener('input',e=>{const k=e.target.dataset.rk,row=e.target.closest('.rem-row');if(!k||!row)return;
+  store.reminders[+row.dataset.r][k]=e.target.value;dirty=true;drawPills()});
+$('rems').addEventListener('change',e=>{const k=e.target.dataset.rk,row=e.target.closest('.rem-row');if(!k||!row)return;
+  store.reminders[+row.dataset.r][k]=e.target.value;dirty=true;drawPills();drawCal()});
+$('rems').addEventListener('click',e=>{const b=e.target.closest('button[data-rr]');if(!b)return;
+  const i=+b.dataset.rr,[rm]=store.reminders.splice(i,1);dirty=true;drawRems();drawPills();drawCal();
+  offerUndo('Rappel « '+rm.text+' » retiré.',()=>{store.reminders.splice(i,0,rm);drawRems();drawPills();drawCal()})});
+document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{
+  const t=new Date();t.setDate(t.getDate()+1);const txt=b.dataset.preset;
+  store.reminders.push({text:txt||'Rappel',date:isoOf(t),freq:'week'});dirty=true;drawRems();drawCal();
+  const rows=$('rems').querySelectorAll('.rem-row');const last=rows[rows.length-1];
+  if(last){const inp=txt?last.querySelector('input[data-rk=date]'):last.querySelector('input[data-rk=text]');inp.focus();if(!txt)inp.select()}
+  $('pinfo').textContent='Rappel ajouté : choisissez la prochaine date et la fréquence, puis publiez.'}));
+$('applyPass').addEventListener('click',()=>{const v=$('newPass').value;
+  if(v.length<4){$('passInfo').textContent='Choisissez au moins 4 caractères.';return}
+  pendingPass=v;dirty=true;$('newPass').value='';$('passInfo').textContent='Notez bien ce mot de passe : il faudra l\'entrer une fois sur la tablette.';drawLock()});
+$('removePass').addEventListener('click',()=>{pendingPass='';dirty=true;$('passInfo').textContent='';drawLock()});
+$('selAll').addEventListener('click',()=>{store.photos.forEach(p=>picked.add(p));drawThumbs()});
+$('bNone').addEventListener('click',()=>{picked.clear();drawThumbs()});
+$('bApply').addEventListener('click',()=>{
+  const from=$('bFrom').value,to=$('bTo').value,parts=[...document.querySelectorAll('[data-bpart]')].filter(x=>x.checked).map(x=>x.dataset.bpart);
+  picked.forEach(p=>{p.from=okDate(from)?from:'';p.to=okDate(from)&&okDate(to)?to:'';p.yearly=$('bYearly').checked;p.parts=parts});
+  dirty=true;$('pinfo').textContent='Réglages appliqués à '+picked.size+' photo(s). Pensez à publier.';drawThumbs();startShow()});
+$('bTaken').addEventListener('click',()=>{let n=0;picked.forEach(p=>{if(p.taken){p.from=p.taken;p.to='';p.yearly=true;n++}});
+  dirty=true;$('pinfo').textContent=n+' photo(s) réglée(s) sur leur date de prise de vue'+(n<picked.size?' (les autres n\'ont pas de date enregistrée).':'.');drawThumbs();startShow()});
+$('bFit').addEventListener('change',e=>{if(!e.target.value)return;picked.forEach(p=>p.fit=e.target.value);dirty=true;e.target.value='';drawThumbs();startShow()});
+$('bRemove').addEventListener('click',()=>removePhotos([...picked]));
+$('preview').addEventListener('change',e=>{previewDay=okDate(e.target.value)&&e.target.value!==isoOf(new Date())?e.target.value:'';drawDay();startShow()});
+$('previewPart').addEventListener('change',e=>{previewPart=PART_KEYS.includes(e.target.value)?e.target.value:'';drawDay();startShow()});
+$('previewReset').addEventListener('click',()=>{previewDay='';previewPart='';$('previewPart').value='';$('preview').value=todayIso();drawDay();startShow()});
+$('fileIn').addEventListener('change',e=>{addFiles([...e.target.files]);e.target.value=''});
+const drop=$('drop');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',e=>addFiles([...e.dataTransfer.files]));
+$('speed').addEventListener('change',e=>{store.speed=+e.target.value;dirty=true;startShow()});
+
+/* ================= Publier ================= */
+let busy=false;
+$('publish').addEventListener('click',async()=>{
+  if(busy)return;busy=true;$('publish').disabled=true;
+  const say=t=>$('pinfo').textContent=t;
+  const old={...lock},changing=pendingPass!==null,target=changing?pendingPass:lock.pass;
+  try{
+    let tSalt=null,tKey=null;
+    if(target){tSalt=(changing||!lock.salt)?b64e(crypto.getRandomValues(new Uint8Array(16))):lock.salt;tKey=await keyFor(target,tSalt)}
+    const id=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    async function put(raw){
+      let data=raw,ext='.jpg';
+      if(tKey){data=await encBytes(tKey,raw);ext='.bin'}
+      const name='photos/p-'+id()+ext;
+      const res=await gh(name,{method:'PUT',body:{message:"Ajout d'une photo",content:b64e(data)}});
+      return{file:name,sha:res.content.sha,enc:!!tKey};
+    }
+    const todo=store.photos.filter(p=>p.src||(changing&&p.file));let i=0;
+    for(const p of todo){
+      i++;say(`Envoi de la photo ${i} sur ${todo.length}…`);
+      let raw;
+      if(p.src)raw=b64d(p.src.split(',')[1]);
+      else{const f=await gh(p.file);raw=b64d(f.content);if(p.enc)raw=await decBytes(old.key,raw);removed.push({file:p.file,sha:p.sha})}
+      const local=p.src||('data:image/jpeg;base64,'+b64e(raw));
+      Object.assign(p,await put(raw));p.local=local;delete p.src;
+    }
+    say('Enregistrement des réglages…');
+    const out={speed:store.speed,reminders:store.reminders.filter(x=>x.text&&okDate(x.date)),
+      photos:store.photos.filter(p=>p.file).map(p=>({file:p.file,sha:p.sha,name:p.name,enc:!!p.enc,from:p.from||'',to:p.to||'',yearly:p.yearly!==false,parts:p.parts||[],msg:p.msg||'',fit:p.fit||'auto',taken:p.taken||''}))};
+    let text=JSON.stringify(out,null,1);
+    if(tKey)text=JSON.stringify({locked:{salt:tSalt,data:b64e(await encBytes(tKey,TE.encode(text)))}});
+    const curM=await gh('photos/manifest.json',{allow404:true});
+    await gh('photos/manifest.json',{method:'PUT',body:{message:'Mise à jour des photos et rappels',content:textToB64(text),sha:curM?curM.sha:undefined}});
+    lock={salt:tSalt,pass:target||'',key:tKey};
+    if(target)lsSet('meteoPass',target);else lsDel('meteoPass');
+    pendingPass=null;
+    for(const f of removed.splice(0)){
+      say('Suppression des anciennes photos…');
+      try{const sha=f.sha||((await gh(f.file,{allow404:true}))||{}).sha;if(sha)await gh(f.file,{method:'DELETE',body:{message:"Retrait d'une photo",sha}})}catch(e){}
+    }
+    dirty=false;syncPauseUntil=Date.now()+10*60*1000;lastManifestText='';
+    drawEditor();drawPills();
+    say('Publié ! La tablette affichera les changements d\'ici 2 à 5 minutes.'+(changing&&target?' Elle vous demandera le nouveau mot de passe une fois.':''));
+  }catch(e){say(ghError(e)+' Vos changements ne sont pas perdus : réessayez.');drawThumbs()}
+  busy=false;$('publish').disabled=false;
+});
+function closePanel(){$('panel').classList.remove('open');if(previewDay||previewPart){previewDay='';previewPart='';$('previewPart').value='';startShow()}}
+document.querySelectorAll('#panel .close').forEach(b=>b.addEventListener('click',closePanel));
+$('panel').addEventListener('click',e=>{if(e.target===$('panel'))closePanel()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closePanel()});
+window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
+
+/* ================= Menu ================= */
+let menuT=null;
+function menu(open){$('menu').classList.toggle('open',open);$('menuBtn').setAttribute('aria-expanded',open);clearTimeout(menuT);if(open)menuT=setTimeout(()=>menu(false),15000)}
+$('menuBtn').addEventListener('click',e=>{e.stopPropagation();menu(!$('menu').classList.contains('open'))});
+$('menu').addEventListener('click',e=>{if(e.target.tagName==='BUTTON')menu(false)});
+document.addEventListener('click',e=>{if(!e.target.closest('#menu,#menuBtn'))menu(false)});
+$('refresh').addEventListener('click',load);
+$('photosBtn').addEventListener('click',openEditor);
+$('locate').addEventListener('click',()=>{
+  if(loc.name!==HOME.name){loc={...HOME};$('locate').textContent='Ma position';load();return}
+  if(!navigator.geolocation){showMsg("La localisation n'est pas disponible ici.");return}
+  navigator.geolocation.getCurrentPosition(p=>{
+    loc={lat:+p.coords.latitude.toFixed(4),lon:+p.coords.longitude.toFixed(4),name:'Ma position actuelle'};
+    $('locate').textContent='Revenir à Rivière-des-Prairies';load();
+  },()=>showMsg("Position introuvable. Rivière-des-Prairies reste affichée."));
+});
+
+/* ================= Écran toujours allumé ================= */
+let wl=null,vidOn=false;
+function setAwake(ok){$('awake').classList.toggle('warn',!ok)}
+async function keepAwake(){
+  try{
+    if('wakeLock' in navigator&&document.visibilityState==='visible'){
+      if(!wl||wl.released){wl=await navigator.wakeLock.request('screen');
+        wl.addEventListener('release',()=>{if(document.visibilityState==='visible')setTimeout(keepAwake,1000)})}
+      setAwake(true);return true;
+    }
+  }catch(e){}
+  try{await $('nosleep').play();vidOn=true;setAwake(true);return true}catch(e){}
+  setAwake(false);return false;
+}
+['click','touchend','keydown'].forEach(ev=>document.addEventListener(ev,()=>{if(!(wl&&!wl.released)&&!vidOn)keepAwake()},{passive:true}));
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){vidOn=false;keepAwake();load();syncFromSite()}});
+setInterval(()=>{if(!(wl&&!wl.released)){if($('nosleep').paused)vidOn=false;keepAwake()}},30*1000);
+$('full').addEventListener('click',async()=>{
+  try{if(document.fullscreenElement)await document.exitFullscreen();else{await document.documentElement.requestFullscreen();keepAwake()}}
+  catch(e){showMsg("Le plein écran n'est pas disponible ici.")}
+});
+document.addEventListener('fullscreenchange',()=>{$('full').textContent=document.fullscreenElement?'Quitter le plein écran':'Plein écran'});
+
+/* ================= Horloge, nuit ================= */
+let wakeUntil=0;
+function nightMode(){
+  const h=new Date().getHours(),root=document.documentElement;
+  const deep=(h>=23||h<6)&&Date.now()>wakeUntil&&!$('panel').classList.contains('open');
+  root.classList.toggle('deep',deep);
+  root.classList.toggle('night',!deep&&(h>=21||h<7));
+}
+// La nuit, un toucher rallume l'affichage normal pendant 1 minute
+document.addEventListener('click',e=>{if(document.documentElement.classList.contains('deep')&&$('start').hidden){wakeUntil=Date.now()+60*1000;nightMode();e.stopPropagation();e.preventDefault()}},true);
+let lastMinute='';
+function tick(){
+  const n=new Date(),k=n.getHours()+':'+pad(n.getMinutes());
+  nightMode();
+  if(k===lastMinute)return;lastMinute=k;
+  $('clock').textContent=k;
+  $('today').textContent=niceDate(isoOf(n),true);
+  drawPills();
+  if(todayIso()+'|'+curPart()!==shownKey)startShow();
+}
+setInterval(tick,5000);
+
+/* ================= Réglages de cet appareil ================= */
+const root=document.documentElement;
+const IS_TABLET=window.matchMedia&&matchMedia('(pointer:coarse)').matches;
+root.classList.toggle('tablet',IS_TABLET);
+function applyPrefs(){
+  const big=lsGet('meteoBig')==='1',motion=lsGet('meteoMotion')!=='0';
+  root.classList.toggle('big',big);root.classList.toggle('motion',motion);
+  $('bigBtn').textContent='Très grand : '+(big?'oui':'non');
+  $('motionBtn').textContent='Zoom lent des photos : '+(motion?'oui':'non');
+}
+$('bigBtn').addEventListener('click',()=>{lsSet('meteoBig',lsGet('meteoBig')==='1'?'0':'1');applyPrefs()});
+$('motionBtn').addEventListener('click',()=>{lsSet('meteoMotion',lsGet('meteoMotion')==='0'?'1':'0');applyPrefs()});
+applyPrefs();
+
+/* ================= Un toucher pour démarrer (tablette) ================= */
+let fsWorks=!!document.documentElement.requestFullscreen;
+function needStart(){return IS_TABLET&&fsWorks&&!document.fullscreenElement}
+$('start').hidden=!needStart();
+$('start').addEventListener('click',async()=>{
+  $('start').hidden=true;keepAwake();
+  try{await document.documentElement.requestFullscreen()}catch(e){fsWorks=false}
+});
+document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&needStart())setTimeout(()=>{$('start').hidden=!needStart()},1500)});
+
+/* ================= Mise à jour automatique de l'application =================
+   Toutes les heures, la tablette regarde si une nouvelle version a été déposée.
+   Si oui, elle se recharge la nuit (ou tout de suite si elle n'est pas en plein écran). */
+let appText=null,updateReady=false;
+async function checkUpdate(){
+  if(location.protocol!=='https:')return;
+  try{
+    const res=await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'});if(!res.ok)return;
+    const t=await res.text();
+    if(appText===null){appText=t;return}
+    if(t!==appText&&t.indexOf('</html>')>0)updateReady=true;
+  }catch(e){}
+}
+function maybeReload(){
+  if(!updateReady||dirty||$('panel').classList.contains('open'))return;
+  const h=new Date().getHours();
+  if(!document.fullscreenElement||h===3)location.reload();
+}
+checkUpdate();setInterval(checkUpdate,60*60*1000);setInterval(maybeReload,5*60*1000);
+
+/* ================= Démarrage ================= */
+tick();keepAwake();startShow();load();syncFromSite();
+setInterval(()=>{if(failed||Date.now()-lastOk>=10*60*1000)load()},2*60*1000);
+setInterval(()=>syncFromSite(),3*60*1000);
+}
+</script>
+</body>
+</html>
