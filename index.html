@@ -307,7 +307,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
             <div class="fields">
               <button type="button" class="primary" id="bApply">Appliquer cette date et ce moment</button>
               <button type="button" id="bTaken">Utiliser leur date de prise de vue</button>
-              <label>Cadrage <select id="bFit"><option value="">— ne pas changer —</option><option value="auto">Automatique</option><option value="fill">Remplir l'écran</option><option value="whole">Photo entière</option></select></label>
+              <label>Cadrage <select id="bFit"><option value="">— choisir —</option><option value="auto">Automatique</option><option value="fill">Remplir l'écran</option><option value="whole">Photo entière</option></select></label><span class="ok" id="bFitMsg"></span>
               <button type="button" id="bRemove">Retirer ces photos</button>
               <button type="button" id="bNone">Tout décocher</button>
             </div>
@@ -864,7 +864,7 @@ $('thumbs').addEventListener('click',e=>{
 $('defBtn').addEventListener('click',()=>openView(view&&view.type==='def'?null:{type:'def'}));
 $('dayClose').addEventListener('click',()=>openView(null));
 $('more').addEventListener('click',()=>{shown+=60;drawGrid()});
-function drawBulk(){$('bulk').hidden=!picked.size;$('bulkCount').textContent=picked.size+' photo(s) cochée(s)'}
+function drawBulk(){if(!picked.size){$('bFit').value='';$('bFitMsg').textContent=''}$('bulk').hidden=!picked.size;$('bulkCount').textContent=picked.size+' photo(s) cochée(s)'}
 /* ----- Calendrier ----- */
 function drawCal(){
   const sel=$('calYear'),y0=new Date().getFullYear();
@@ -964,7 +964,10 @@ $('bApply').addEventListener('click',()=>{
   dirty=true;$('pinfo').textContent='Réglages appliqués à '+picked.size+' photo(s). Pensez à publier.';drawThumbs();startShow()});
 $('bTaken').addEventListener('click',()=>{let n=0;picked.forEach(p=>{if(p.taken){p.from=p.taken;p.to='';p.yearly=true;n++}});
   dirty=true;$('pinfo').textContent=n+' photo(s) réglée(s) sur leur date de prise de vue'+(n<picked.size?' (les autres n\'ont pas de date enregistrée).':'.');drawThumbs();startShow()});
-$('bFit').addEventListener('change',e=>{if(!e.target.value)return;picked.forEach(p=>p.fit=e.target.value);dirty=true;e.target.value='';drawThumbs();startShow()});
+$('bFit').addEventListener('change',e=>{const v=e.target.value;if(!v){$('bFitMsg').textContent='';return}
+  picked.forEach(p=>p.fit=v);dirty=true;
+  $('bFitMsg').textContent='Cadrage « '+e.target.selectedOptions[0].textContent+' » appliqué à '+picked.size+' photo(s). Pensez à publier.';
+  drawGrid();drawDetail();startShow()});
 $('bRemove').addEventListener('click',()=>removePhotos([...picked]));
 $('previewPart').addEventListener('change',e=>{previewPart=PART_KEYS.includes(e.target.value)?e.target.value:'';drawDay();startShow()});
 $('fileIn').addEventListener('change',e=>{addFiles([...e.target.files]);e.target.value=''});
