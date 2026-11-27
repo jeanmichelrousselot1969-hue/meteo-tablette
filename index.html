@@ -295,7 +295,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
           </div>
           <div class="row"><b id="dayCount"></b><button type="button" id="selAll">Cocher toutes</button></div>
           <div class="bulk" id="bulk" hidden>
-            <b id="bulkCount"></b>
+            <b id="bulkCount"></b> <span class="hint">— les changements s'appliquent tout de suite aux photos cochées</span>
             <div class="fields">
               <label>Le / du <input type="date" id="bFrom"></label>
               <label>au <input type="date" id="bTo"></label>
@@ -304,10 +304,10 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
             <div class="fields"><span class="lbl">Moment :</span>
               <label><input type="checkbox" data-bpart="matin"> Matin</label><label><input type="checkbox" data-bpart="apresmidi"> Après-midi</label>
               <label><input type="checkbox" data-bpart="soir"> Soir</label><label><input type="checkbox" data-bpart="nuit"> Nuit</label></div>
+            <div class="ok" id="bFitMsg"></div>
             <div class="fields">
-              <button type="button" class="primary" id="bApply">Appliquer cette date et ce moment</button>
               <button type="button" id="bTaken">Utiliser leur date de prise de vue</button>
-              <label>Cadrage <select id="bFit"><option value="">— choisir —</option><option value="auto">Automatique</option><option value="fill">Remplir l'écran</option><option value="whole">Photo entière</option></select></label><span class="ok" id="bFitMsg"></span>
+              <label>Cadrage <select id="bFit"><option value="">— choisir —</option><option value="auto">Automatique</option><option value="fill">Remplir l'écran</option><option value="whole">Photo entière</option></select></label>
               <button type="button" id="bRemove">Retirer ces photos</button>
               <button type="button" id="bNone">Tout décocher</button>
             </div>
@@ -864,7 +864,16 @@ $('thumbs').addEventListener('click',e=>{
 $('defBtn').addEventListener('click',()=>openView(view&&view.type==='def'?null:{type:'def'}));
 $('dayClose').addEventListener('click',()=>openView(null));
 $('more').addEventListener('click',()=>{shown+=60;drawGrid()});
-function drawBulk(){if(!picked.size){$('bFit').value='';$('bFitMsg').textContent=''}$('bulk').hidden=!picked.size;$('bulkCount').textContent=picked.size+' photo(s) cochée(s)'}
+function syncBulk(){
+  const L=[...picked];if(!L.length)return;
+  const same=f=>L.every(p=>f(p)===f(L[0]));
+  $('bFrom').value=same(p=>p.from||'')?(L[0].from||''):'';
+  $('bTo').value=same(p=>p.to||'')?(L[0].to||''):'';
+  $('bYearly').checked=same(p=>p.yearly!==false)?L[0].yearly!==false:true;
+  document.querySelectorAll('[data-bpart]').forEach(c=>{c.checked=L.every(p=>(p.parts||[]).includes(c.dataset.bpart))});
+  $('bFit').value=same(p=>p.fit||'auto')?(L[0].fit||'auto'):'';
+}
+function drawBulk(){if(!picked.size)$('bFitMsg').textContent='';else syncBulk();$('bulk').hidden=!picked.size;$('bulkCount').textContent=picked.size+' photo(s) cochée(s)'}
 /* ----- Calendrier ----- */
 function drawCal(){
   const sel=$('calYear'),y0=new Date().getFullYear();
@@ -958,16 +967,21 @@ $('applyPass').addEventListener('click',()=>{const v=$('newPass').value;
 $('removePass').addEventListener('click',()=>{pendingPass='';dirty=true;$('passInfo').textContent='';drawLock()});
 $('selAll').addEventListener('click',()=>{filtered().forEach(p=>picked.add(p));drawGrid();drawBulk()});
 $('bNone').addEventListener('click',()=>{picked.clear();drawThumbs()});
-$('bApply').addEventListener('click',()=>{
-  const from=$('bFrom').value,to=$('bTo').value,parts=[...document.querySelectorAll('[data-bpart]')].filter(x=>x.checked).map(x=>x.dataset.bpart);
-  picked.forEach(p=>{p.from=okDate(from)?from:'';p.to=okDate(from)&&okDate(to)?to:'';p.yearly=$('bYearly').checked;p.parts=parts});
-  dirty=true;$('pinfo').textContent='Réglages appliqués à '+picked.size+' photo(s). Pensez à publier.';drawThumbs();startShow()});
+function bulkDone(what){
+  dirty=true;
+  const out=[...picked].filter(p=>view&&!filtered().includes(p)).length;
+  $('bFitMsg').textContent=what+' : appliqué à '+picked.size+' photo(s)'+(out?' ('+out+' déplacée(s) vers une autre date)':'')+'. Pensez à publier.';
+  drawGrid();drawDetail();drawCal();startShow();
+}
+$('bFrom').addEventListener('change',e=>{const v=e.target.value;picked.forEach(p=>{p.from=okDate(v)?v:'';if(!okDate(v))p.to=''});bulkDone('Date')});
+$('bTo').addEventListener('change',e=>{const v=e.target.value;picked.forEach(p=>{p.to=okDate(p.from)&&okDate(v)?v:''});bulkDone('Date de fin')});
+$('bYearly').addEventListener('change',e=>{picked.forEach(p=>p.yearly=e.target.checked);bulkDone('Chaque année')});
+document.querySelectorAll('[data-bpart]').forEach(c=>c.addEventListener('change',()=>{
+  const parts=[...document.querySelectorAll('[data-bpart]')].filter(x=>x.checked).map(x=>x.dataset.bpart);
+  picked.forEach(p=>p.parts=parts.slice());bulkDone('Moment'+(parts.length?' ('+parts.map(partName).join(', ')+')':' (toute la journée)'))}));
 $('bTaken').addEventListener('click',()=>{let n=0;picked.forEach(p=>{if(p.taken){p.from=p.taken;p.to='';p.yearly=true;n++}});
   dirty=true;$('pinfo').textContent=n+' photo(s) réglée(s) sur leur date de prise de vue'+(n<picked.size?' (les autres n\'ont pas de date enregistrée).':'.');drawThumbs();startShow()});
-$('bFit').addEventListener('change',e=>{const v=e.target.value;if(!v){$('bFitMsg').textContent='';return}
-  picked.forEach(p=>p.fit=v);dirty=true;
-  $('bFitMsg').textContent='Cadrage « '+e.target.selectedOptions[0].textContent+' » appliqué à '+picked.size+' photo(s). Pensez à publier.';
-  drawGrid();drawDetail();startShow()});
+$('bFit').addEventListener('change',e=>{const v=e.target.value;if(!v)return;picked.forEach(p=>p.fit=v);bulkDone('Cadrage « '+e.target.selectedOptions[0].textContent+' »')});
 $('bRemove').addEventListener('click',()=>removePhotos([...picked]));
 $('previewPart').addEventListener('change',e=>{previewPart=PART_KEYS.includes(e.target.value)?e.target.value:'';drawDay();startShow()});
 $('fileIn').addEventListener('change',e=>{addFiles([...e.target.files]);e.target.value=''});
