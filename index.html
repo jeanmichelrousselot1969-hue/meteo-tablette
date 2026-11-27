@@ -16,6 +16,7 @@
   --deep:#0f3b57;--river:#1f6f96;--warm:#ff9a5c;--line:#d6e2ea}
 @media(prefers-color-scheme:dark){:root{--bg:#0b1620;--card:#122230;--ink:#e8f1f7;--mute:#9db2c1;--msgbg:#2a1a12;--line:#24394a}}
 *{box-sizing:border-box;min-width:0}
+[hidden]{display:none!important}
 html,body{height:100%}
 body{margin:0;font:16px/1.4 Archivo,system-ui,sans-serif;overflow:hidden;background:var(--deep);color:#fff}
 .screen{position:fixed;inset:0;background:radial-gradient(120% 90% at 70% 10%,#2b7fa8,var(--deep) 60%,#0a2a3e);
@@ -190,6 +191,11 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .thumbs .thumb{border:0;padding:0}
 .thumbs .thumb img{width:220px;max-width:100%}
 @media(max-width:600px){.thumbs .thumb img{width:100%}}
+.dayview{border:2px solid var(--river);border-radius:16px;padding:14px;margin:14px 0;background:var(--card)}
+.dayview .thumbs{border-width:1px}
+.mon .g button.sel{background:var(--river)!important;color:#fff!important;font-weight:800}
+#defBtn.on{background:var(--river);color:#fff;border-color:var(--river)}
+.pubbar{position:sticky;bottom:0;background:var(--card);z-index:3;padding:10px 0;margin-bottom:0;box-shadow:0 -8px 12px -8px rgba(0,0,0,.25)}
 .sheet .sub{font-size:14px;color:var(--mute);margin:4px 0}
 .sheet .ok{color:#2b8a3e;font-weight:600}.sheet .bad{color:#c92a2a;font-weight:600}
 @media(max-width:600px){.thumb{grid-template-columns:1fr}.thumb img{width:100%}.sheet{padding:18px}}
@@ -267,52 +273,50 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
     <div id="editor" hidden>
       <section>
         <h3>Photos</h3>
-        <p>Pour chaque photo : la <b>date</b> (un jour ou une période), le <b>moment</b> — matin (6 h à 12 h), après-midi (12 h à 17 h), soir (17 h à 21 h), nuit (21 h à 6 h) — et, si vous voulez, un <b>message</b> qui s'affiche avec elle. Les photos <b>sans date</b> servent les jours où rien n'est prévu. S'il y en a plusieurs, elles passent au hasard.</p>
-        <label class="drop" id="drop">
-          <input type="file" id="fileIn" accept="image/*" multiple>
-          <b>Choisir des photos</b>
-          <span>ou glissez-les ici depuis votre ordinateur</span>
-        </label>
-        <div class="filters">
-          <label>Afficher <select id="fShow">
-            <option value="all">Toutes les photos</option><option value="def">Sans date (par défaut)</option>
-            <option value="new">À publier</option><option value="msg">Avec un message</option>
-            <option value="m1">Janvier</option><option value="m2">Février</option><option value="m3">Mars</option><option value="m4">Avril</option>
-            <option value="m5">Mai</option><option value="m6">Juin</option><option value="m7">Juillet</option><option value="m8">Août</option>
-            <option value="m9">Septembre</option><option value="m10">Octobre</option><option value="m11">Novembre</option><option value="m12">Décembre</option>
-            <option value="day" hidden>Un jour précis</option></select></label>
-          <input type="search" id="fText" placeholder="Chercher (nom ou message)" aria-label="Chercher une photo">
-          <label>Trier <select id="fSort"><option value="add">Plus récentes d'abord</option><option value="date">Par date d'affichage</option></select></label>
+        <p>Touchez un <b>jour du calendrier</b> pour voir ses photos ou en ajouter. Les jours en orange ont déjà des photos (point blanc : un message, trait bleu : un rappel). Les <b>photos par défaut</b> s'affichent les jours où rien n'est prévu.</p>
+        <div class="row">
+          <select id="calYear" aria-label="Année"></select>
+          <button type="button" id="defBtn">Photos par défaut</button>
+          <span class="hint" id="fCount"></span>
         </div>
-        <div class="row"><b id="fCount"></b><button type="button" id="selAll">Cocher celles affichées</button><button type="button" id="fClear" hidden>Tout afficher</button></div>
-        <div class="bulk" id="bulk" hidden>
-          <b id="bulkCount"></b>
-          <div class="fields">
-            <label>Le / du <input type="date" id="bFrom"></label>
-            <label>au <input type="date" id="bTo"></label>
-            <label><input type="checkbox" id="bYearly" checked> Chaque année</label>
+        <div class="cal" id="cal"></div>
+
+        <div class="dayview" id="dayview" hidden>
+          <div class="detail-head"><b id="dayTitle"></b><button type="button" id="dayClose">Fermer ce jour</button></div>
+          <label class="drop" id="drop">
+            <input type="file" id="fileIn" accept="image/*" multiple>
+            <b id="dropTitle">Ajouter des photos pour ce jour</b>
+            <span>Choisir des photos, ou les glisser ici depuis votre ordinateur</span>
+          </label>
+          <div class="row fields" id="previewRow">
+            <label for="previewPart">Ce que la tablette montrera ce jour-là,</label>
+            <select id="previewPart" aria-label="Moment"><option value="">maintenant</option><option value="matin">le matin</option><option value="apresmidi">l'après-midi</option><option value="soir">le soir</option><option value="nuit">la nuit</option></select>
+            <span class="sub" id="pday"></span>
           </div>
-          <div class="fields"><span class="lbl">Moment :</span>
-            <label><input type="checkbox" data-bpart="matin"> Matin</label><label><input type="checkbox" data-bpart="apresmidi"> Après-midi</label>
-            <label><input type="checkbox" data-bpart="soir"> Soir</label><label><input type="checkbox" data-bpart="nuit"> Nuit</label></div>
-          <div class="fields">
-            <button type="button" class="primary" id="bApply">Appliquer cette date et ce moment</button>
-            <button type="button" id="bTaken">Utiliser leur date de prise de vue</button>
-            <label>Cadrage <select id="bFit"><option value="">— ne pas changer —</option><option value="auto">Automatique</option><option value="fill">Remplir l'écran</option><option value="whole">Photo entière</option></select></label>
-            <button type="button" id="bRemove">Retirer ces photos</button>
-            <button type="button" id="bNone">Tout décocher</button>
+          <div class="row"><b id="dayCount"></b><button type="button" id="selAll">Cocher toutes</button></div>
+          <div class="bulk" id="bulk" hidden>
+            <b id="bulkCount"></b>
+            <div class="fields">
+              <label>Le / du <input type="date" id="bFrom"></label>
+              <label>au <input type="date" id="bTo"></label>
+              <label><input type="checkbox" id="bYearly" checked> Chaque année</label>
+            </div>
+            <div class="fields"><span class="lbl">Moment :</span>
+              <label><input type="checkbox" data-bpart="matin"> Matin</label><label><input type="checkbox" data-bpart="apresmidi"> Après-midi</label>
+              <label><input type="checkbox" data-bpart="soir"> Soir</label><label><input type="checkbox" data-bpart="nuit"> Nuit</label></div>
+            <div class="fields">
+              <button type="button" class="primary" id="bApply">Appliquer cette date et ce moment</button>
+              <button type="button" id="bTaken">Utiliser leur date de prise de vue</button>
+              <label>Cadrage <select id="bFit"><option value="">— ne pas changer —</option><option value="auto">Automatique</option><option value="fill">Remplir l'écran</option><option value="whole">Photo entière</option></select></label>
+              <button type="button" id="bRemove">Retirer ces photos</button>
+              <button type="button" id="bNone">Tout décocher</button>
+            </div>
           </div>
+          <div class="grid" id="grid"></div>
+          <div class="row" id="moreRow" hidden><button type="button" id="more">Afficher plus de photos</button></div>
+          <div class="thumbs" id="thumbs"></div>
         </div>
-        <div class="grid" id="grid"></div>
-        <div class="row" id="moreRow" hidden><button type="button" id="more">Afficher plus de photos</button></div>
-        <div class="thumbs" id="thumbs"></div>
-        <div class="row fields">
-          <label for="preview">Voir ce que la tablette montrera le</label>
-          <input type="date" id="preview">
-          <select id="previewPart" aria-label="Moment"><option value="">maintenant</option><option value="matin">le matin</option><option value="apresmidi">l'après-midi</option><option value="soir">le soir</option><option value="nuit">la nuit</option></select>
-          <button type="button" id="previewReset">Aujourd'hui</button>
-        </div>
-        <div class="sub" id="pday"></div>
+
         <div class="row">
           <label for="speed">Changer de photo toutes les</label>
           <select id="speed">
@@ -324,13 +328,6 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
             <option value="900">15 minutes</option>
           </select>
         </div>
-      </section>
-
-      <section class="sec">
-        <h3>Calendrier</h3>
-        <p>En orange : jours avec des photos prévues. Point blanc : un message. Trait bleu : un rappel. Touchez un jour pour voir ce que la tablette montrera.</p>
-        <div class="row"><select id="calYear" aria-label="Année"></select></div>
-        <div class="cal" id="cal"></div>
       </section>
 
       <section class="sec">
@@ -354,7 +351,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
         <div class="sub" id="passInfo"></div>
       </section>
 
-      <div class="row sec">
+      <div class="row sec pubbar">
         <button type="button" class="primary" id="publish">Publier vers la tablette</button>
         <button type="button" class="close">Fermer</button>
         <button type="button" id="ghForget">Changer de code d'accès</button>
@@ -744,7 +741,7 @@ async function addFiles(files){
   for(const f of files){
     if(!/^image\//.test(f.type)&&!/\.(jpe?g|png|webp|gif|bmp)$/i.test(f.name)){bad.push(f.name);continue}
     try{let taken='';try{taken=exifDate(await f.arrayBuffer())}catch(e){}
-      store.photos.push({src:await resize(f),name:f.name,from:'',to:'',yearly:true,parts:[],msg:'',fit:'auto',taken});n++}catch(e){bad.push(f.name)}
+      store.photos.push({src:await resize(f),name:f.name,from:view&&view.type==='day'?view.iso:'',to:'',yearly:true,parts:[],msg:'',fit:'auto',taken});n++}catch(e){bad.push(f.name)}
   }
   if(n)dirty=true;
   drawThumbs();startShow();
@@ -762,8 +759,8 @@ function whenText(p){
 }
 function drawDay(){
   const iso=todayIso(),r=listFor(iso);
-  $('pday').textContent=(previewDay?'Le '+niceDate(iso,true):"Aujourd'hui")+', '+partName(curPart()).toLowerCase()+' : '+
-    (r.list.length?r.list.length+(r.kind==='date'?' photo(s) prévue(s) pour ce moment.':' photo(s) par défaut.'):'aucune photo à afficher.');
+  $('pday').textContent=
+    (r.list.length?r.list.length+(r.kind==='date'?' photo(s) prévue(s), qui passeront au hasard.':' photo(s) par défaut (rien de prévu pour ce moment).'):'aucune photo à afficher.');
   [...document.querySelectorAll('.tile')].forEach(el=>el.classList.toggle('today',r.list.includes(store.photos[+el.dataset.i])));
 }
 let picked=new Set(),openP=null,shown=60,fDay='';
@@ -780,35 +777,39 @@ function inMonth(p,m){
   if(p.yearly===false){const y2=+p.from.slice(0,4);for(let d=1;d<=new Date(y2,m,0).getDate();d++)if(matches(p,y2+'-'+pad(m)+'-'+pad(d)))return true}
   return false;
 }
+let view=null; // {type:'day',iso} ou {type:'def'}
 function filtered(){
-  const show=$('fShow').value,q=$('fText').value.trim().toLowerCase();
-  let list=store.photos.filter(p=>{
-    if(show==='def'&&okDate(p.from))return false;
-    if(show==='new'&&!p.src)return false;
-    if(show==='msg'&&!p.msg)return false;
-    if(show==='day'&&!(fDay&&matches(p,fDay)))return false;
-    if(/^m\d+$/.test(show)&&!inMonth(p,+show.slice(1)))return false;
-    if(q&&!((p.name||'')+' '+(p.msg||'')).toLowerCase().includes(q))return false;
-    return true;
-  });
-  if($('fSort').value==='date'){
-    const key=p=>okDate(p.from)?(p.yearly===false?'1'+p.from:'0'+p.from.slice(5)):'2';
-    list=list.slice().sort((a,b)=>key(a)<key(b)?-1:key(a)>key(b)?1:0);
-  }else list=list.slice().reverse();
-  return list;
+  if(!view)return [];
+  const list=view.type==='def'?store.photos.filter(p=>!okDate(p.from)):store.photos.filter(p=>matches(p,view.iso));
+  return list.slice().reverse();
+}
+function openView(v){
+  view=v;openP=null;picked.clear();shown=60;
+  previewDay=v&&v.type==='day'&&v.iso!==isoOf(new Date())?v.iso:'';
+  $('dayview').hidden=!v;
+  $('defBtn').classList.toggle('on',!!v&&v.type==='def');
+  if(v){
+    $('dayTitle').textContent=v.type==='def'?'Photos par défaut (sans date)':'Photos du '+niceDate(v.iso,true);
+    $('dropTitle').textContent=v.type==='def'?'Ajouter des photos par défaut':'Ajouter des photos pour ce jour';
+    $('previewRow').hidden=v.type==='def';
+  }
+  drawThumbs();startShow();
+  if(v)$('dayview').scrollIntoView({behavior:'smooth',block:'start'});
 }
 let tileObs=null;
 function drawGrid(){
   for(const p of [...picked])if(!store.photos.includes(p))picked.delete(p);
   if(openP&&!store.photos.includes(openP))openP=null;
   const list=filtered(),vis=list.slice(0,shown),g=$('grid');
-  const filt=$('fShow').value!=='all'||$('fText').value.trim();
-  $('fCount').textContent=store.photos.length?(filt?list.length+' photo(s) sur '+store.photos.length:store.photos.length+' photo(s)'):'';
-  $('fClear').hidden=!filt;$('selAll').hidden=!list.length;
+  const nDef=store.photos.filter(p=>!okDate(p.from)).length;
+  $('defBtn').textContent='Photos par défaut ('+nDef+')';
+  $('fCount').textContent=store.photos.length?store.photos.length+' photo(s) en tout':'Aucune photo pour l\'instant';
+  $('dayCount').textContent=view?(list.length?list.length+' photo(s)':''):'';
+  $('selAll').hidden=list.length<2;
   g.innerHTML=vis.length?vis.map(p=>{const i=store.photos.indexOf(p);return `<div class="tile${picked.has(p)?' picked':''}${p===openP?' open':''}" data-i="${i}" tabindex="0" role="button" aria-label="Régler la photo ${esc(p.name||'')}">
       <img alt="" loading="lazy"><input type="checkbox" class="tick" data-sel aria-label="Cocher" ${picked.has(p)?'checked':''}>
       ${p.src?'<i class="nw">à publier</i>':''}${p.msg?'<i class="ms" title="Message"></i>':''}<span class="cap">${esc(shortWhen(p))}</span></div>`}).join('')
-    :'<div class="empty">'+(store.photos.length?'Aucune photo ne correspond.':'Aucune photo pour l\'instant.')+'</div>';
+    :(view?'<div class="empty">'+(view.type==='def'?'Aucune photo par défaut.':'Aucune photo prévue ce jour-là. Ajoutez-en ci-dessus.')+'</div>':'');
   $('moreRow').hidden=list.length<=shown;
   if(tileObs)tileObs.disconnect();
   tileObs='IntersectionObserver' in window?new IntersectionObserver(es=>es.forEach(en=>{if(!en.isIntersecting)return;tileObs.unobserve(en.target);loadTile(en.target)}),{root:null,rootMargin:'300px'}):null;
@@ -846,7 +847,6 @@ function refreshTile(p){const el=$('grid').querySelector(`.tile[data-i="${store.
 function drawThumbs(){
   drawGrid();drawDetail();
   $('speed').value=String(store.speed);
-  $('preview').value=todayIso();
   drawBulk();drawCal();
 }
 $('grid').addEventListener('click',e=>{
@@ -861,9 +861,8 @@ $('thumbs').addEventListener('click',e=>{
   const nv=e.target.closest('[data-nav]');
   if(nv){const list=filtered(),k=list.indexOf(openP)+(+nv.dataset.nav);if(list[k]){if(k>=shown){shown=k+1;drawGrid()}openPhoto(list[k])}}
 });
-['fShow','fSort'].forEach(id=>$(id).addEventListener('change',()=>{if(id==='fShow'&&$('fShow').value!=='day')fDay='';shown=60;drawGrid();drawDetail()}));
-$('fText').addEventListener('input',()=>{shown=60;drawGrid()});
-$('fClear').addEventListener('click',()=>{$('fShow').value='all';$('fText').value='';fDay='';shown=60;drawGrid();drawDetail()});
+$('defBtn').addEventListener('click',()=>openView(view&&view.type==='def'?null:{type:'def'}));
+$('dayClose').addEventListener('click',()=>openView(null));
 $('more').addEventListener('click',()=>{shown+=60;drawGrid()});
 function drawBulk(){$('bulk').hidden=!picked.size;$('bulkCount').textContent=picked.size+' photo(s) cochée(s)'}
 /* ----- Calendrier ----- */
@@ -878,7 +877,7 @@ function drawCal(){
     for(let i=0;i<first.getDay();i++)h+='<span></span>';
     for(let d=1;d<=days;d++){
       const iso=y+'-'+pad(m+1)+'-'+pad(d),ph=store.photos.filter(p=>matches(p,iso));
-      const cls=[ph.length?'ph':'',ph.some(p=>p.msg)?'msg':'',store.reminders.some(r=>occurs(r,iso))?'rm2':'',iso===todayS?'today':''].filter(Boolean).join(' ');
+      const cls=[ph.length?'ph':'',ph.some(p=>p.msg)?'msg':'',store.reminders.some(r=>occurs(r,iso))?'rm2':'',iso===todayS?'today':'',view&&view.type==='day'&&view.iso===iso?'sel':''].filter(Boolean).join(' ');
       const tip=ph.length?ph.length+' photo(s)'+(ph.some(p=>p.msg)?' — '+ph.filter(p=>p.msg).map(p=>p.msg).join(' / '):''):'';
       h+=`<button type="button" class="${cls}" data-day="${iso}" title="${esc(tip)}">${d}</button>`;
     }
@@ -887,10 +886,7 @@ function drawCal(){
   $('cal').innerHTML=h;
 }
 $('calYear').addEventListener('change',drawCal);
-$('cal').addEventListener('click',e=>{const b=e.target.closest('button[data-day]');if(!b)return;
-  const iso=b.dataset.day;previewDay=iso===isoOf(new Date())?'':iso;$('preview').value=iso;startShow();
-  fDay=iso;const o=$('fShow').querySelector('option[value=day]');o.hidden=false;o.textContent='Photos du '+niceDate(iso,false);$('fShow').value='day';shown=60;openPhoto(null);drawGrid();
-  $('fShow').scrollIntoView({behavior:'smooth',block:'center'})});
+$('cal').addEventListener('click',e=>{const b=e.target.closest('button[data-day]');if(!b)return;const iso=b.dataset.day;openView(view&&view.type==='day'&&view.iso===iso?null:{type:'day',iso})});
 /* ----- Annuler ----- */
 let undoT=null,undoFn=null;
 function offerUndo(text,fn){undoFn=fn;$('undoText').textContent=text;$('undo').hidden=false;clearTimeout(undoT);undoT=setTimeout(()=>{$('undo').hidden=true;undoFn=null},12000)}
@@ -970,9 +966,7 @@ $('bTaken').addEventListener('click',()=>{let n=0;picked.forEach(p=>{if(p.taken)
   dirty=true;$('pinfo').textContent=n+' photo(s) réglée(s) sur leur date de prise de vue'+(n<picked.size?' (les autres n\'ont pas de date enregistrée).':'.');drawThumbs();startShow()});
 $('bFit').addEventListener('change',e=>{if(!e.target.value)return;picked.forEach(p=>p.fit=e.target.value);dirty=true;e.target.value='';drawThumbs();startShow()});
 $('bRemove').addEventListener('click',()=>removePhotos([...picked]));
-$('preview').addEventListener('change',e=>{previewDay=okDate(e.target.value)&&e.target.value!==isoOf(new Date())?e.target.value:'';drawDay();startShow()});
 $('previewPart').addEventListener('change',e=>{previewPart=PART_KEYS.includes(e.target.value)?e.target.value:'';drawDay();startShow()});
-$('previewReset').addEventListener('click',()=>{previewDay='';previewPart='';$('previewPart').value='';$('preview').value=todayIso();drawDay();startShow()});
 $('fileIn').addEventListener('change',e=>{addFiles([...e.target.files]);e.target.value=''});
 const drop=$('drop');
 ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
@@ -1026,7 +1020,7 @@ $('publish').addEventListener('click',async()=>{
   }catch(e){say(ghError(e)+' Vos changements ne sont pas perdus : réessayez.');drawThumbs()}
   busy=false;$('publish').disabled=false;
 });
-function closePanel(){$('panel').classList.remove('open');if(previewDay||previewPart){previewDay='';previewPart='';$('previewPart').value='';startShow()}}
+function closePanel(){$('panel').classList.remove('open');previewPart='';$('previewPart').value='';if(view)openView(null);else if(previewDay){previewDay='';startShow()}}
 document.querySelectorAll('#panel .close').forEach(b=>b.addEventListener('click',closePanel));
 $('panel').addEventListener('click',e=>{if(e.target===$('panel'))closePanel()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closePanel()});
