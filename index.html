@@ -196,6 +196,21 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .mon .g button.sel{background:var(--river)!important;color:#fff!important;font-weight:800}
 #defBtn.on{background:var(--river);color:#fff;border-color:var(--river)}
 .pubbar{position:sticky;bottom:0;background:var(--card);z-index:3;padding:10px 0;margin-bottom:0;box-shadow:0 -8px 12px -8px rgba(0,0,0,.25)}
+.slot{border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:10px 0;background:var(--bg)}
+.slot.over{border-color:var(--warm);box-shadow:0 0 0 2px var(--warm)}
+.slot-h{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.slot-h b{font-size:17px;min-width:8.5em}
+.slot-h .add{margin-left:auto}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:8px}
+.cards:empty{display:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.card img{width:100%;aspect-ratio:3/2;object-fit:contain;background:#111;display:block}
+.card .cf{padding:8px;display:flex;flex-direction:column;gap:6px}
+.card select,.card input[type=text]{width:100%;font:inherit;font-size:15px;min-height:40px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:0 8px}
+.card .cb{display:flex;gap:6px;flex-wrap:wrap}
+.card .cb button{min-height:36px!important;padding:0 10px!important;font-size:13px!important}
+.pubbar .status{flex:1 1 220px;font-size:14px;color:var(--mute)}
+.pubbar .status.saved{color:#2b8a3e;font-weight:600}
 .sheet .sub{font-size:14px;color:var(--mute);margin:4px 0}
 .sheet .ok{color:#2b8a3e;font-weight:600}.sheet .bad{color:#c92a2a;font-weight:600}
 @media(max-width:600px){.thumb{grid-template-columns:1fr}.thumb img{width:100%}.sheet{padding:18px}}
@@ -273,7 +288,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
     <div id="editor" hidden>
       <section>
         <h3>Photos</h3>
-        <p>Touchez un <b>jour du calendrier</b> pour voir ses photos ou en ajouter. Les jours en orange ont déjà des photos (point blanc : un message, trait bleu : un rappel). Les <b>photos par défaut</b> s'affichent les jours où rien n'est prévu.</p>
+        <p>Touchez un <b>jour du calendrier</b> : il s'ouvre en cases (toute la journée, matin, après-midi, soir, nuit) où vous ajoutez vos photos. Les jours en orange ont déjà des photos (point blanc : un message, trait bleu : un rappel). Les <b>photos par défaut</b> s'affichent les jours où rien n'est prévu.</p>
         <div class="row">
           <select id="calYear" aria-label="Année"></select>
           <button type="button" id="defBtn">Photos par défaut</button>
@@ -283,6 +298,11 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 
         <div class="dayview" id="dayview" hidden>
           <div class="detail-head"><b id="dayTitle"></b><button type="button" id="dayClose">Fermer ce jour</button></div>
+          <p class="hint" id="dayHelp">Chaque case correspond à un moment de la journée. Cliquez sur <b>+ Ajouter</b> dans la case voulue. S'il y a plusieurs photos dans une case, elles passent au hasard. Tout s'enregistre automatiquement.</p>
+          <div id="slots"></div>
+          <div class="thumbs" id="thumbs"></div>
+          <div hidden>
+          
           <label class="drop" id="drop">
             <input type="file" id="fileIn" accept="image/*" multiple>
             <b id="dropTitle">Ajouter des photos pour ce jour</b>
@@ -314,7 +334,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
           </div>
           <div class="grid" id="grid"></div>
           <div class="row" id="moreRow" hidden><button type="button" id="more">Afficher plus de photos</button></div>
-          <div class="thumbs" id="thumbs"></div>
+                  </div>
         </div>
 
         <div class="row">
@@ -352,11 +372,11 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
       </section>
 
       <div class="row sec pubbar">
-        <button type="button" class="primary" id="publish">Publier vers la tablette</button>
-        <button type="button" class="close">Fermer</button>
-        <button type="button" id="ghForget">Changer de code d'accès</button>
+        <span class="status" id="pinfo"></span>
+        <button type="button" id="publish">Enregistrer maintenant</button>
+        <button type="button" class="close primary">Fermer</button>
       </div>
-      <div class="sub" id="pinfo"></div>
+      <div class="row"><button type="button" id="ghForget">Changer de code d'accès GitHub</button></div>
     </div>
     <div class="undo" id="undo" hidden><span id="undoText"></span><button type="button" id="undoBtn">Annuler</button></div>
   </div>
@@ -741,11 +761,11 @@ async function addFiles(files){
   for(const f of files){
     if(!/^image\//.test(f.type)&&!/\.(jpe?g|png|webp|gif|bmp)$/i.test(f.name)){bad.push(f.name);continue}
     try{let taken='';try{taken=exifDate(await f.arrayBuffer())}catch(e){}
-      store.photos.push({src:await resize(f),name:f.name,from:view&&view.type==='day'?view.iso:'',to:'',yearly:true,parts:[],msg:'',fit:'auto',taken});n++}catch(e){bad.push(f.name)}
+      store.photos.push({src:await resize(f),name:f.name,from:view&&view.type==='day'?view.iso:'',to:'',yearly:true,parts:addSlot&&addSlot!=='all'?[addSlot]:[],msg:'',fit:'auto',taken});n++}catch(e){bad.push(f.name)}
   }
-  if(n)dirty=true;
+  if(n)markDirty();
   drawThumbs();startShow();
-  $('pinfo').textContent=(n?n+' photo(s) ajoutée(s) — réglez-les, puis cliquez sur « Publier ». ':'')+(bad.length?'Non lisible(s) : '+bad.join(', ')+' (format HEIC non pris en charge, convertissez en JPEG).':'');
+  $('pinfo').textContent=(n?n+' photo(s) ajoutée(s), enregistrement automatique dans quelques secondes. ':'')+(bad.length?'Non lisible(s) : '+bad.join(', ')+' (format HEIC non pris en charge, convertissez en JPEG).':'');
 }
 function dateText(p){
   if(!okDate(p.from))return 'Sans date — photo par défaut';
@@ -796,6 +816,45 @@ function openView(v){
   drawThumbs();startShow();
   if(v)$('dayview').scrollIntoView({behavior:'smooth',block:'start'});
 }
+const SLOTS=[['all','Toute la journée','à tout moment'],['matin','Matin','6 h à 12 h'],['apresmidi','Après-midi','12 h à 17 h'],['soir','Soir','17 h à 21 h'],['nuit','Nuit','21 h à 6 h']];
+const isAllDay=p=>!p.parts||!p.parts.length||p.parts.length>=4;
+let addSlot='all';
+function drawSlots(){
+  const box=$('slots');
+  if(!view){box.innerHTML='';return}
+  const list=filtered().slice().reverse();
+  box.innerHTML=SLOTS.map(([k,n,h])=>{
+    const ph=list.filter(p=>k==='all'?isAllDay(p):!isAllDay(p)&&p.parts.includes(k));
+    return `<div class="slot" data-slot="${k}"><div class="slot-h"><b>${n}</b><span class="hint">${h}</span>
+      <span class="hint">${ph.length?ph.length+' photo'+(ph.length>1?'s, au hasard':''):'aucune photo'}</span>
+      <button type="button" class="primary add" data-add="${k}">+ Ajouter</button></div>
+      <div class="cards">${ph.map(p=>{const i=store.photos.indexOf(p);return `<div class="card" data-i="${i}"><img alt="${esc(p.name||'Photo')}">
+        <div class="cf">
+          <label class="hint">Moment <select data-move aria-label="Moment">${SLOTS.map(([k2,n2])=>`<option value="${k2}" ${k2===k?'selected':''}>${n2}</option>`).join('')}</select></label>
+          <input type="text" data-cmsg maxlength="80" placeholder="Message (facultatif)" value="${esc(p.msg||'')}" aria-label="Message">
+          <div class="cb"><button type="button" data-rm2>Retirer</button><button type="button" data-more>Plus de réglages</button></div>
+        </div></div>`}).join('')}</div></div>`;
+  }).join('');
+  box.querySelectorAll('.card').forEach(el=>{const p=store.photos[+el.dataset.i];if(p)srcFor(p).then(u=>{if(u)el.querySelector('img').src=u}).catch(()=>{})});
+}
+$('slots').addEventListener('click',e=>{
+  const ad=e.target.closest('[data-add]');if(ad){addSlot=ad.dataset.add;$('fileIn').click();return}
+  const card=e.target.closest('.card');if(!card)return;const p=store.photos[+card.dataset.i];if(!p)return;
+  if(e.target.closest('[data-rm2]')){removePhotos([p]);return}
+  if(e.target.closest('[data-more]')){openP=p;drawDetail();$('thumbs').scrollIntoView({behavior:'smooth',block:'center'})}
+});
+$('slots').addEventListener('change',e=>{
+  const card=e.target.closest('.card');if(!card)return;const p=store.photos[+card.dataset.i];if(!p)return;
+  if(e.target.hasAttribute('data-move')){const v=e.target.value;p.parts=v==='all'?[]:[v];markDirty();drawSlots();drawCal();if(openP===p)drawDetail();startShow()}
+  if(e.target.hasAttribute('data-cmsg'))drawCal();
+});
+$('slots').addEventListener('input',e=>{
+  if(!e.target.hasAttribute('data-cmsg'))return;const card=e.target.closest('.card');const p=store.photos[+card.dataset.i];
+  p.msg=e.target.value.slice(0,80);markDirty();
+});
+$('slots').addEventListener('dragover',e=>{const sl=e.target.closest('.slot');if(!sl)return;e.preventDefault();document.querySelectorAll('.slot.over').forEach(x=>x.classList.remove('over'));sl.classList.add('over')});
+$('slots').addEventListener('dragleave',e=>{const sl=e.target.closest('.slot');if(sl&&!sl.contains(e.relatedTarget))sl.classList.remove('over')});
+$('slots').addEventListener('drop',e=>{const sl=e.target.closest('.slot');if(!sl)return;e.preventDefault();sl.classList.remove('over');addSlot=sl.dataset.slot;addFiles([...e.dataTransfer.files])});
 let tileObs=null;
 function drawGrid(){
   for(const p of [...picked])if(!store.photos.includes(p))picked.delete(p);
@@ -814,7 +873,7 @@ function drawGrid(){
   if(tileObs)tileObs.disconnect();
   tileObs='IntersectionObserver' in window?new IntersectionObserver(es=>es.forEach(en=>{if(!en.isIntersecting)return;tileObs.unobserve(en.target);loadTile(en.target)}),{root:null,rootMargin:'300px'}):null;
   g.querySelectorAll('.tile').forEach(el=>tileObs?tileObs.observe(el):loadTile(el));
-  drawDay();
+  drawDay();drawSlots();
 }
 function loadTile(el){const p=store.photos[+el.dataset.i];if(p)srcFor(p).then(u=>{if(u)el.querySelector('img').src=u}).catch(()=>{})}
 function drawDetail(){
@@ -827,7 +886,7 @@ function drawDetail(){
       <button type="button" data-close>Fermer</button></span></div>
     <div class="thumb" data-i="${i}">
       <div><img alt="${esc(p.name||'Photo')}"><div class="taken">${esc(p.name||'')}</div></div>
-      <div><div class="when${okDate(p.from)?'':' def'}">${esc(whenText(p))}</div>${p.src?'<span class="new">à publier</span>':''}
+      <div><div class="when${okDate(p.from)?'':' def'}">${esc(whenText(p))}</div>${p.src?'<span class="new">nouvelle</span>':''}
         ${p.taken?`<div class="taken">Photo prise le ${esc(niceDate(p.taken,true).replace(/^\S+ /,''))} <button type="button" class="rm" data-souv="${i}">En faire un souvenir chaque année</button></div>`:''}
         <div class="fields">
           <label>Le / du <input type="date" data-k="from" value="${okDate(p.from)?esc(p.from):''}"></label>
@@ -910,7 +969,7 @@ function drawRems(){
 }
 function drawLock(){
   const s=pendingPass===null?(lock.pass?'<span class="ok">Vos photos sont protégées par un mot de passe.</span>':'<span class="bad">Vos photos ne sont pas protégées</span> : quelqu\'un qui connaît l\'adresse du site pourrait les voir.')
-    :(pendingPass?'Mot de passe prêt — cliquez sur « Publier » pour protéger les photos.':'Retrait du mot de passe prêt — cliquez sur « Publier ».');
+    :(pendingPass?'Mot de passe prêt — il s\'applique à l\'enregistrement automatique, dans quelques secondes.':'Retrait du mot de passe en cours d\'enregistrement.');
   $('lockState').innerHTML=s;$('removePass').hidden=!lock.pass&&!pendingPass;
 }
 function drawEditor(){drawThumbs();drawRems();drawLock()}
@@ -918,7 +977,7 @@ function removePhotos(list){
   const saved=list.map(p=>({p,i:store.photos.indexOf(p)})).filter(x=>x.i>=0).sort((a,b)=>a.i-b.i);
   const rem=[];
   for(const x of [...saved].reverse()){store.photos.splice(x.i,1);picked.delete(x.p);if(x.p.file){const r={file:x.p.file,sha:x.p.sha};removed.push(r);rem.push(r)}}
-  dirty=true;drawThumbs();startShow();
+  markDirty();drawThumbs();startShow();
   offerUndo(saved.length+' photo(s) retirée(s).',()=>{
     for(const x of saved)store.photos.splice(Math.min(x.i,store.photos.length),0,x.p);
     removed=removed.filter(r=>!rem.includes(r));drawThumbs();startShow();
@@ -928,7 +987,7 @@ $('thumbs').addEventListener('click',e=>{
   const b=e.target.closest('button[data-rm]');
   if(b){removePhotos([store.photos[+b.dataset.rm]]);return}
   const sv=e.target.closest('button[data-souv]');
-  if(sv){const p=store.photos[+sv.dataset.souv];p.from=p.taken;p.to='';p.yearly=true;dirty=true;drawThumbs();startShow()}
+  if(sv){const p=store.photos[+sv.dataset.souv];p.from=p.taken;p.to='';p.yearly=true;markDirty();drawThumbs();startShow()}
 });
 function onThumbEdit(e){
   const row=e.target.closest('.thumb');
@@ -941,34 +1000,34 @@ function onThumbEdit(e){
   else if(k==='fit')p.fit=e.target.value;
   else p[k]=e.target.value;
   if(k==='from'&&!okDate(p.from))p.to='';
-  dirty=true;
+  markDirty();
   const w=row.querySelector('.when');w.textContent=whenText(p);w.classList.toggle('def',!okDate(p.from));
   if(k==='msg'){const tile=$('grid').querySelector(`.tile[data-i="${store.photos.indexOf(p)}"]`);if(tile&&!!p.msg!==!!tile.querySelector('.ms'))drawGrid()}else refreshTile(p);
-  if(k!=='msg'){drawDay();drawCal();if(k!=='fit')startShow()}else drawCal();
+  if(k!=='msg'){drawDay();drawCal();drawSlots();if(k!=='fit')startShow()}else{drawCal();drawSlots()}
 }
 $('thumbs').addEventListener('change',onThumbEdit);
 $('thumbs').addEventListener('input',e=>{if(e.target.dataset.k==='msg')onThumbEdit(e)});
 $('rems').addEventListener('input',e=>{const k=e.target.dataset.rk,row=e.target.closest('.rem-row');if(!k||!row)return;
-  store.reminders[+row.dataset.r][k]=e.target.value;dirty=true;drawPills()});
+  store.reminders[+row.dataset.r][k]=e.target.value;markDirty();drawPills()});
 $('rems').addEventListener('change',e=>{const k=e.target.dataset.rk,row=e.target.closest('.rem-row');if(!k||!row)return;
-  store.reminders[+row.dataset.r][k]=e.target.value;dirty=true;drawPills();drawCal()});
+  store.reminders[+row.dataset.r][k]=e.target.value;markDirty();drawPills();drawCal()});
 $('rems').addEventListener('click',e=>{const b=e.target.closest('button[data-rr]');if(!b)return;
-  const i=+b.dataset.rr,[rm]=store.reminders.splice(i,1);dirty=true;drawRems();drawPills();drawCal();
+  const i=+b.dataset.rr,[rm]=store.reminders.splice(i,1);markDirty();drawRems();drawPills();drawCal();
   offerUndo('Rappel « '+rm.text+' » retiré.',()=>{store.reminders.splice(i,0,rm);drawRems();drawPills();drawCal()})});
 document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{
   const t=new Date();t.setDate(t.getDate()+1);const txt=b.dataset.preset;
-  store.reminders.push({text:txt||'Rappel',date:isoOf(t),freq:'week'});dirty=true;drawRems();drawCal();
+  store.reminders.push({text:txt||'Rappel',date:isoOf(t),freq:'week'});markDirty();drawRems();drawCal();
   const rows=$('rems').querySelectorAll('.rem-row');const last=rows[rows.length-1];
   if(last){const inp=txt?last.querySelector('input[data-rk=date]'):last.querySelector('input[data-rk=text]');inp.focus();if(!txt)inp.select()}
-  $('pinfo').textContent='Rappel ajouté : choisissez la prochaine date et la fréquence, puis publiez.'}));
+  $('pinfo').textContent='Rappel ajouté : choisissez la prochaine date et la fréquence. Tout s\'enregistre automatiquement.'}));
 $('applyPass').addEventListener('click',()=>{const v=$('newPass').value;
   if(v.length<4){$('passInfo').textContent='Choisissez au moins 4 caractères.';return}
-  pendingPass=v;dirty=true;$('newPass').value='';$('passInfo').textContent='Notez bien ce mot de passe : il faudra l\'entrer une fois sur la tablette.';drawLock()});
-$('removePass').addEventListener('click',()=>{pendingPass='';dirty=true;$('passInfo').textContent='';drawLock()});
+  pendingPass=v;markDirty();$('newPass').value='';$('passInfo').textContent='Notez bien ce mot de passe : il faudra l\'entrer une fois sur la tablette.';drawLock()});
+$('removePass').addEventListener('click',()=>{pendingPass='';markDirty();$('passInfo').textContent='';drawLock()});
 $('selAll').addEventListener('click',()=>{filtered().forEach(p=>picked.add(p));drawGrid();drawBulk()});
 $('bNone').addEventListener('click',()=>{picked.clear();drawThumbs()});
 function bulkDone(what){
-  dirty=true;
+  markDirty();
   const out=[...picked].filter(p=>view&&!filtered().includes(p)).length;
   $('bFitMsg').textContent=what+' : appliqué à '+picked.size+' photo(s)'+(out?' ('+out+' déplacée(s) vers une autre date)':'')+'. Pensez à publier.';
   drawGrid();drawDetail();drawCal();startShow();
@@ -980,7 +1039,7 @@ document.querySelectorAll('[data-bpart]').forEach(c=>c.addEventListener('change'
   const parts=[...document.querySelectorAll('[data-bpart]')].filter(x=>x.checked).map(x=>x.dataset.bpart);
   picked.forEach(p=>p.parts=parts.slice());bulkDone('Moment'+(parts.length?' ('+parts.map(partName).join(', ')+')':' (toute la journée)'))}));
 $('bTaken').addEventListener('click',()=>{let n=0;picked.forEach(p=>{if(p.taken){p.from=p.taken;p.to='';p.yearly=true;n++}});
-  dirty=true;$('pinfo').textContent=n+' photo(s) réglée(s) sur leur date de prise de vue'+(n<picked.size?' (les autres n\'ont pas de date enregistrée).':'.');drawThumbs();startShow()});
+  markDirty();$('pinfo').textContent=n+' photo(s) réglée(s) sur leur date de prise de vue'+(n<picked.size?' (les autres n\'ont pas de date enregistrée).':'.');drawThumbs();startShow()});
 $('bFit').addEventListener('change',e=>{const v=e.target.value;if(!v)return;picked.forEach(p=>p.fit=v);bulkDone('Cadrage « '+e.target.selectedOptions[0].textContent+' »')});
 $('bRemove').addEventListener('click',()=>removePhotos([...picked]));
 $('previewPart').addEventListener('change',e=>{previewPart=PART_KEYS.includes(e.target.value)?e.target.value:'';drawDay();startShow()});
@@ -989,13 +1048,20 @@ const drop=$('drop');
 ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
 ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
 drop.addEventListener('drop',e=>addFiles([...e.dataTransfer.files]));
-$('speed').addEventListener('change',e=>{store.speed=+e.target.value;dirty=true;startShow()});
+$('speed').addEventListener('change',e=>{store.speed=+e.target.value;markDirty();startShow()});
 
 /* ================= Publier ================= */
-let busy=false;
+let busy=false,editVer=0,autoT=null;
+function setStatus(t,saved){const el=$('pinfo');el.textContent=t;el.classList.toggle('saved',!!saved)}
+function markDirty(){dirty=true;editVer++;clearTimeout(autoT);autoT=setTimeout(autoSave,3000);setStatus('Modifications en cours… enregistrement automatique dans quelques secondes.')}
+function autoSave(){
+  if(!dirty||!cfg||!cfg.token)return;
+  if(busy||!$('undo').hidden){clearTimeout(autoT);autoT=setTimeout(autoSave,2000);return}
+  $('publish').click();
+}
 $('publish').addEventListener('click',async()=>{
-  if(busy)return;busy=true;$('publish').disabled=true;
-  const say=t=>$('pinfo').textContent=t;
+  if(busy)return;busy=true;$('publish').disabled=true;clearTimeout(autoT);const startVer=editVer;
+  const say=t=>setStatus(t);
   const old={...lock},changing=pendingPass!==null,target=changing?pendingPass:lock.pass;
   try{
     let tSalt=null,tKey=null;
@@ -1031,10 +1097,10 @@ $('publish').addEventListener('click',async()=>{
       say('Suppression des anciennes photos…');
       try{const sha=f.sha||((await gh(f.file,{allow404:true}))||{}).sha;if(sha)await gh(f.file,{method:'DELETE',body:{message:"Retrait d'une photo",sha}})}catch(e){}
     }
-    dirty=false;syncPauseUntil=Date.now()+10*60*1000;lastManifestText='';
-    drawEditor();drawPills();
-    say('Publié ! La tablette affichera les changements d\'ici 2 à 5 minutes.'+(changing&&target?' Elle vous demandera le nouveau mot de passe une fois.':''));
-  }catch(e){say(ghError(e)+' Vos changements ne sont pas perdus : réessayez.');drawThumbs()}
+    dirty=editVer!==startVer;syncPauseUntil=Date.now()+10*60*1000;lastManifestText='';
+    drawLock();drawCal();drawPills();if(!openP)drawSlots();
+    if(dirty)markDirty();else setStatus('Tout est enregistré. La tablette sera à jour d\'ici quelques minutes.'+(changing&&target?' Elle vous demandera le nouveau mot de passe une fois.':''),true);
+  }catch(e){say(ghError(e)+' Vos changements ne sont pas perdus : cliquez sur « Enregistrer maintenant ».')}
   busy=false;$('publish').disabled=false;
 });
 function closePanel(){$('panel').classList.remove('open');previewPart='';$('previewPart').value='';if(view)openView(null);else if(previewDay){previewDay='';startShow()}}
