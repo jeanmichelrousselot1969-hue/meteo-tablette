@@ -560,7 +560,7 @@ async function openManifest(obj){
 let store={speed:300,photos:[],reminders:[]};
 let removed=[],dirty=false,timer=null,front='imgA',previewDay='',previewPart='',shownKey='',slideTok=0,syncPauseUntil=0,pendingPass=null;
 const okFile=f=>/^photos\/[\w.-]+\.(jpe?g|png|webp|bin)$/i.test(f||'');
-const PARTS=[['matin','Matin','6 h à 12 h'],['apresmidi','Après-midi','12 h à 17 h'],['soir','Soir','17 h à 21 h'],['nuit','Nuit','21 h à 6 h']];
+const PARTS=[['matin','Matin','6 h à 12 h'],['apresmidi','Après-midi','12 h à 17 h'],['soir','Soir','17 h à 21 h'],['nuit','Nuit','21 h à 6 h le lendemain']];
 const PART_KEYS=PARTS.map(x=>x[0]);
 function partOf(h){return h>=6&&h<12?'matin':h>=12&&h<17?'apresmidi':h>=17&&h<21?'soir':'nuit'}
 function curPart(){return previewPart||partOf(new Date().getHours())}
@@ -588,7 +588,9 @@ async function srcFor(p){
   const raw=await decBytes(lock.key,new Uint8Array(await res.arrayBuffer()));
   const u=URL.createObjectURL(new Blob([raw],{type:'image/jpeg'}));blobCache.set(p.file,u);return u;
 }
-function todayIso(){return previewDay||isoOf(new Date())}
+// La journée des photos va de 6 h à 6 h : entre minuit et 6 h, on montre encore la nuit de la veille
+function photoDay(){return isoOf(new Date(Date.now()-6*3600*1000))}
+function todayIso(){return previewDay||photoDay()}
 function niceDate(iso,withYear){const d=new Date(iso+'T12:00:00');
   return d.toLocaleDateString('fr-CA',withYear?{weekday:'long',day:'numeric',month:'long',year:'numeric'}:{day:'numeric',month:'long'})}
 function matches(p,iso){
@@ -805,7 +807,7 @@ function filtered(){
 }
 function openView(v){
   view=v;openP=null;picked.clear();shown=60;
-  previewDay=v&&v.type==='day'&&v.iso!==isoOf(new Date())?v.iso:'';
+  previewDay=v&&v.type==='day'&&v.iso!==photoDay()?v.iso:'';
   $('dayview').hidden=!v;
   $('defBtn').classList.toggle('on',!!v&&v.type==='def');
   if(v){
@@ -816,7 +818,7 @@ function openView(v){
   drawThumbs();startShow();
   if(v)$('dayview').scrollIntoView({behavior:'smooth',block:'start'});
 }
-const SLOTS=[['all','Toute la journée','à tout moment'],['matin','Matin','6 h à 12 h'],['apresmidi','Après-midi','12 h à 17 h'],['soir','Soir','17 h à 21 h'],['nuit','Nuit','21 h à 6 h']];
+const SLOTS=[['all','Toute la journée','de 6 h jusqu\'à 6 h le lendemain'],['matin','Matin','6 h à 12 h'],['apresmidi','Après-midi','12 h à 17 h'],['soir','Soir','17 h à 21 h'],['nuit','Nuit','21 h jusqu\'à 6 h le lendemain matin']];
 const isAllDay=p=>!p.parts||!p.parts.length||p.parts.length>=4;
 let addSlot='all';
 function drawSlots(){
