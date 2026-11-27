@@ -131,7 +131,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .drop input{display:none}
 .drop b{display:block;font-size:18px;margin-bottom:4px}
 .thumbs{display:grid;gap:10px;margin:14px 0}
-.thumb{display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;align-items:start;padding:10px;border:1px solid var(--line);border-radius:14px}
+.thumb{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:start;padding:10px;border:1px solid var(--line);border-radius:14px}
 .thumb.today{box-shadow:0 0 0 2px var(--warm) inset;border-color:var(--warm)}
 .thumb img{width:120px;aspect-ratio:4/3;object-fit:cover;border-radius:8px;display:block;background:var(--bg)}
 .fields{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-top:6px}
@@ -169,6 +169,27 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .undo{position:sticky;bottom:0;display:flex;gap:12px;align-items:center;justify-content:space-between;background:#212529;color:#fff;border-radius:12px;padding:8px 8px 8px 16px;margin-top:12px}
 .undo[hidden]{display:none}
 .undo button{background:#ffd43b!important;color:#212529!important;border:0!important;font-weight:700}
+.filters{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-top:6px}
+.filters label{font-size:14px;color:var(--mute);display:flex;gap:6px;align-items:center}
+.filters input[type=search]{flex:1 1 200px;font:inherit;font-size:16px;min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:0 10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;margin:8px 0}
+.tile{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--bg);cursor:pointer;border:2px solid transparent}
+.tile img{width:100%;height:100%;object-fit:cover;display:block}
+.tile .cap{position:absolute;left:0;right:0;bottom:0;padding:14px 6px 4px;font-size:11px;font-weight:600;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.75));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .tick{position:absolute;top:6px;left:6px;width:22px;height:22px;margin:0;cursor:pointer}
+.tile .nw{position:absolute;top:6px;right:6px;font-size:10px;font-weight:700;background:#e8590c;color:#fff;border-radius:5px;padding:1px 5px;font-style:normal}
+.tile .ms{position:absolute;top:30px;right:6px;width:10px;height:10px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px #c05600}
+.tile.picked{border-color:#e8590c}
+.tile.open{border-color:var(--river);box-shadow:0 0 0 2px var(--river)}
+.tile.today{outline:3px solid #ff922b;outline-offset:-3px}
+.tile:focus-visible{outline:3px solid var(--warm)}
+.detail-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.detail-head b{font-size:16px}
+.thumbs:empty{display:none}
+.thumbs{border:2px solid var(--river);border-radius:16px;padding:12px;margin:10px 0}
+.thumbs .thumb{border:0;padding:0}
+.thumbs .thumb img{width:220px;max-width:100%}
+@media(max-width:600px){.thumbs .thumb img{width:100%}}
 .sheet .sub{font-size:14px;color:var(--mute);margin:4px 0}
 .sheet .ok{color:#2b8a3e;font-weight:600}.sheet .bad{color:#c92a2a;font-weight:600}
 @media(max-width:600px){.thumb{grid-template-columns:1fr}.thumb img{width:100%}.sheet{padding:18px}}
@@ -252,7 +273,18 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
           <b>Choisir des photos</b>
           <span>ou glissez-les ici depuis votre ordinateur</span>
         </label>
-        <div class="row"><button type="button" id="selAll">Tout cocher</button><span class="hint">Cochez plusieurs photos pour les régler toutes en même temps.</span></div>
+        <div class="filters">
+          <label>Afficher <select id="fShow">
+            <option value="all">Toutes les photos</option><option value="def">Sans date (par défaut)</option>
+            <option value="new">À publier</option><option value="msg">Avec un message</option>
+            <option value="m1">Janvier</option><option value="m2">Février</option><option value="m3">Mars</option><option value="m4">Avril</option>
+            <option value="m5">Mai</option><option value="m6">Juin</option><option value="m7">Juillet</option><option value="m8">Août</option>
+            <option value="m9">Septembre</option><option value="m10">Octobre</option><option value="m11">Novembre</option><option value="m12">Décembre</option>
+            <option value="day" hidden>Un jour précis</option></select></label>
+          <input type="search" id="fText" placeholder="Chercher (nom ou message)" aria-label="Chercher une photo">
+          <label>Trier <select id="fSort"><option value="add">Plus récentes d'abord</option><option value="date">Par date d'affichage</option></select></label>
+        </div>
+        <div class="row"><b id="fCount"></b><button type="button" id="selAll">Cocher celles affichées</button><button type="button" id="fClear" hidden>Tout afficher</button></div>
         <div class="bulk" id="bulk" hidden>
           <b id="bulkCount"></b>
           <div class="fields">
@@ -271,6 +303,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
             <button type="button" id="bNone">Tout décocher</button>
           </div>
         </div>
+        <div class="grid" id="grid"></div>
+        <div class="row" id="moreRow" hidden><button type="button" id="more">Afficher plus de photos</button></div>
         <div class="thumbs" id="thumbs"></div>
         <div class="row fields">
           <label for="preview">Voir ce que la tablette montrera le</label>
@@ -730,14 +764,68 @@ function drawDay(){
   const iso=todayIso(),r=listFor(iso);
   $('pday').textContent=(previewDay?'Le '+niceDate(iso,true):"Aujourd'hui")+', '+partName(curPart()).toLowerCase()+' : '+
     (r.list.length?r.list.length+(r.kind==='date'?' photo(s) prévue(s) pour ce moment.':' photo(s) par défaut.'):'aucune photo à afficher.');
-  [...document.querySelectorAll('.thumb')].forEach(el=>el.classList.toggle('today',r.list.includes(store.photos[+el.dataset.i])));
+  [...document.querySelectorAll('.tile')].forEach(el=>el.classList.toggle('today',r.list.includes(store.photos[+el.dataset.i])));
 }
-let picked=new Set();
-function drawThumbs(){
-  const t=$('thumbs');
+let picked=new Set(),openP=null,shown=60,fDay='';
+const SHORT_M=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+function shortWhen(p){
+  if(!okDate(p.from))return 'Par défaut';
+  const f=d=>(+d.slice(8))+' '+SHORT_M[+d.slice(5,7)-1]+(p.yearly===false?' '+d.slice(0,4):'');
+  return okDate(p.to)&&p.to!==p.from?f(p.from)+' → '+f(p.to):f(p.from);
+}
+function inMonth(p,m){
+  if(!okDate(p.from))return false;
+  const y=new Date().getFullYear(),days=new Date(y,m,0).getDate();
+  for(let d=1;d<=days;d++)if(matches(p,y+'-'+pad(m)+'-'+pad(d)))return true;
+  if(p.yearly===false){const y2=+p.from.slice(0,4);for(let d=1;d<=new Date(y2,m,0).getDate();d++)if(matches(p,y2+'-'+pad(m)+'-'+pad(d)))return true}
+  return false;
+}
+function filtered(){
+  const show=$('fShow').value,q=$('fText').value.trim().toLowerCase();
+  let list=store.photos.filter(p=>{
+    if(show==='def'&&okDate(p.from))return false;
+    if(show==='new'&&!p.src)return false;
+    if(show==='msg'&&!p.msg)return false;
+    if(show==='day'&&!(fDay&&matches(p,fDay)))return false;
+    if(/^m\d+$/.test(show)&&!inMonth(p,+show.slice(1)))return false;
+    if(q&&!((p.name||'')+' '+(p.msg||'')).toLowerCase().includes(q))return false;
+    return true;
+  });
+  if($('fSort').value==='date'){
+    const key=p=>okDate(p.from)?(p.yearly===false?'1'+p.from:'0'+p.from.slice(5)):'2';
+    list=list.slice().sort((a,b)=>key(a)<key(b)?-1:key(a)>key(b)?1:0);
+  }else list=list.slice().reverse();
+  return list;
+}
+let tileObs=null;
+function drawGrid(){
   for(const p of [...picked])if(!store.photos.includes(p))picked.delete(p);
-  t.innerHTML=store.photos.length?store.photos.map((p,i)=>`<div class="thumb${picked.has(p)?' picked':''}" data-i="${i}">
-      <div><img alt="${esc(p.name||'Photo')}"><label class="sel"><input type="checkbox" data-sel ${picked.has(p)?'checked':''}> Cocher</label></div>
+  if(openP&&!store.photos.includes(openP))openP=null;
+  const list=filtered(),vis=list.slice(0,shown),g=$('grid');
+  const filt=$('fShow').value!=='all'||$('fText').value.trim();
+  $('fCount').textContent=store.photos.length?(filt?list.length+' photo(s) sur '+store.photos.length:store.photos.length+' photo(s)'):'';
+  $('fClear').hidden=!filt;$('selAll').hidden=!list.length;
+  g.innerHTML=vis.length?vis.map(p=>{const i=store.photos.indexOf(p);return `<div class="tile${picked.has(p)?' picked':''}${p===openP?' open':''}" data-i="${i}" tabindex="0" role="button" aria-label="Régler la photo ${esc(p.name||'')}">
+      <img alt="" loading="lazy"><input type="checkbox" class="tick" data-sel aria-label="Cocher" ${picked.has(p)?'checked':''}>
+      ${p.src?'<i class="nw">à publier</i>':''}${p.msg?'<i class="ms" title="Message"></i>':''}<span class="cap">${esc(shortWhen(p))}</span></div>`}).join('')
+    :'<div class="empty">'+(store.photos.length?'Aucune photo ne correspond.':'Aucune photo pour l\'instant.')+'</div>';
+  $('moreRow').hidden=list.length<=shown;
+  if(tileObs)tileObs.disconnect();
+  tileObs='IntersectionObserver' in window?new IntersectionObserver(es=>es.forEach(en=>{if(!en.isIntersecting)return;tileObs.unobserve(en.target);loadTile(en.target)}),{root:null,rootMargin:'300px'}):null;
+  g.querySelectorAll('.tile').forEach(el=>tileObs?tileObs.observe(el):loadTile(el));
+  drawDay();
+}
+function loadTile(el){const p=store.photos[+el.dataset.i];if(p)srcFor(p).then(u=>{if(u)el.querySelector('img').src=u}).catch(()=>{})}
+function drawDetail(){
+  const t=$('thumbs');
+  if(!openP){t.innerHTML='';return}
+  const p=openP,i=store.photos.indexOf(p),list=filtered(),k=list.indexOf(p);
+  t.innerHTML=`<div class="detail-head"><b>Réglages de cette photo</b><span>
+      <button type="button" data-nav="-1" ${k<=0?'disabled':''}>‹ Précédente</button>
+      <button type="button" data-nav="1" ${k<0||k>=list.length-1?'disabled':''}>Suivante ›</button>
+      <button type="button" data-close>Fermer</button></span></div>
+    <div class="thumb" data-i="${i}">
+      <div><img alt="${esc(p.name||'Photo')}"><div class="taken">${esc(p.name||'')}</div></div>
       <div><div class="when${okDate(p.from)?'':' def'}">${esc(whenText(p))}</div>${p.src?'<span class="new">à publier</span>':''}
         ${p.taken?`<div class="taken">Photo prise le ${esc(niceDate(p.taken,true).replace(/^\S+ /,''))} <button type="button" class="rm" data-souv="${i}">En faire un souvenir chaque année</button></div>`:''}
         <div class="fields">
@@ -746,16 +834,37 @@ function drawThumbs(){
           <label><input type="checkbox" data-k="yearly" ${p.yearly!==false?'checked':''}> Chaque année</label>
           <button type="button" class="rm" data-rm="${i}">Retirer</button>
         </div>
-        <div class="fields parts"><span class="lbl">Moment :</span>${PARTS.map(([k,n,h])=>`<label title="${h}"><input type="checkbox" data-part="${k}" ${p.parts&&p.parts.includes(k)?'checked':''}> ${n}</label>`).join('')}<span class="hint">(rien de coché = toute la journée)</span></div>
+        <div class="fields parts"><span class="lbl">Moment :</span>${PARTS.map(([k2,n,h])=>`<label title="${h}"><input type="checkbox" data-part="${k2}" ${p.parts&&p.parts.includes(k2)?'checked':''}> ${n}</label>`).join('')}<span class="hint">(rien de coché = toute la journée)</span></div>
         <div class="fields"><label>Cadrage <select data-k="fit"><option value="auto" ${p.fit!=='fill'&&p.fit!=='whole'?'selected':''}>Automatique</option><option value="fill" ${p.fit==='fill'?'selected':''}>Remplir l'écran</option><option value="whole" ${p.fit==='whole'?'selected':''}>Photo entière</option></select></label></div>
         <div class="fields"><label class="wide">Message <input type="text" data-k="msg" maxlength="80" placeholder="Facultatif — ex. : Bonne fête Julie !" value="${esc(p.msg||'')}"></label></div>
-      </div></div>`).join('')
-    :'<div class="empty">Aucune photo pour l\'instant.</div>';
-  [...t.querySelectorAll('.thumb')].forEach(el=>{const p=store.photos[+el.dataset.i];srcFor(p).then(u=>{if(u)el.querySelector('img').src=u}).catch(()=>{})});
+      </div></div>`;
+  srcFor(p).then(u=>{if(u&&openP===p)t.querySelector('.thumb img').src=u}).catch(()=>{});
+}
+function openPhoto(p,scroll){openP=p;$('grid').querySelectorAll('.tile').forEach(el=>el.classList.toggle('open',store.photos[+el.dataset.i]===p));drawDetail();
+  if(scroll)$('thumbs').scrollIntoView({behavior:'smooth',block:'nearest'})}
+function refreshTile(p){const el=$('grid').querySelector(`.tile[data-i="${store.photos.indexOf(p)}"] .cap`);if(el)el.textContent=shortWhen(p)}
+function drawThumbs(){
+  drawGrid();drawDetail();
   $('speed').value=String(store.speed);
   $('preview').value=todayIso();
-  drawBulk();drawDay();drawCal();
+  drawBulk();drawCal();
 }
+$('grid').addEventListener('click',e=>{
+  const tile=e.target.closest('.tile');if(!tile)return;
+  const p=store.photos[+tile.dataset.i];
+  if(e.target.hasAttribute('data-sel')){if(e.target.checked)picked.add(p);else picked.delete(p);tile.classList.toggle('picked',e.target.checked);drawBulk();return}
+  openPhoto(openP===p?null:p,openP!==p);
+});
+$('grid').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList.contains('tile')){e.preventDefault();const p=store.photos[+e.target.dataset.i];openPhoto(openP===p?null:p,true)}});
+$('thumbs').addEventListener('click',e=>{
+  if(e.target.closest('[data-close]')){openPhoto(null);return}
+  const nv=e.target.closest('[data-nav]');
+  if(nv){const list=filtered(),k=list.indexOf(openP)+(+nv.dataset.nav);if(list[k]){if(k>=shown){shown=k+1;drawGrid()}openPhoto(list[k])}}
+});
+['fShow','fSort'].forEach(id=>$(id).addEventListener('change',()=>{if(id==='fShow'&&$('fShow').value!=='day')fDay='';shown=60;drawGrid();drawDetail()}));
+$('fText').addEventListener('input',()=>{shown=60;drawGrid()});
+$('fClear').addEventListener('click',()=>{$('fShow').value='all';$('fText').value='';fDay='';shown=60;drawGrid();drawDetail()});
+$('more').addEventListener('click',()=>{shown+=60;drawGrid()});
 function drawBulk(){$('bulk').hidden=!picked.size;$('bulkCount').textContent=picked.size+' photo(s) cochée(s)'}
 /* ----- Calendrier ----- */
 function drawCal(){
@@ -779,8 +888,9 @@ function drawCal(){
 }
 $('calYear').addEventListener('change',drawCal);
 $('cal').addEventListener('click',e=>{const b=e.target.closest('button[data-day]');if(!b)return;
-  const iso=b.dataset.day;previewDay=iso===isoOf(new Date())?'':iso;$('preview').value=iso;drawDay();startShow();
-  $('preview').scrollIntoView({behavior:'smooth',block:'center'})});
+  const iso=b.dataset.day;previewDay=iso===isoOf(new Date())?'':iso;$('preview').value=iso;startShow();
+  fDay=iso;const o=$('fShow').querySelector('option[value=day]');o.hidden=false;o.textContent='Photos du '+niceDate(iso,false);$('fShow').value='day';shown=60;openPhoto(null);drawGrid();
+  $('fShow').scrollIntoView({behavior:'smooth',block:'center'})});
 /* ----- Annuler ----- */
 let undoT=null,undoFn=null;
 function offerUndo(text,fn){undoFn=fn;$('undoText').textContent=text;$('undo').hidden=false;clearTimeout(undoT);undoT=setTimeout(()=>{$('undo').hidden=true;undoFn=null},12000)}
@@ -828,6 +938,7 @@ function onThumbEdit(e){
   if(k==='from'&&!okDate(p.from))p.to='';
   dirty=true;
   const w=row.querySelector('.when');w.textContent=whenText(p);w.classList.toggle('def',!okDate(p.from));
+  if(k==='msg'){const tile=$('grid').querySelector(`.tile[data-i="${store.photos.indexOf(p)}"]`);if(tile&&!!p.msg!==!!tile.querySelector('.ms'))drawGrid()}else refreshTile(p);
   if(k!=='msg'){drawDay();drawCal();if(k!=='fit')startShow()}else drawCal();
 }
 $('thumbs').addEventListener('change',onThumbEdit);
@@ -849,7 +960,7 @@ $('applyPass').addEventListener('click',()=>{const v=$('newPass').value;
   if(v.length<4){$('passInfo').textContent='Choisissez au moins 4 caractères.';return}
   pendingPass=v;dirty=true;$('newPass').value='';$('passInfo').textContent='Notez bien ce mot de passe : il faudra l\'entrer une fois sur la tablette.';drawLock()});
 $('removePass').addEventListener('click',()=>{pendingPass='';dirty=true;$('passInfo').textContent='';drawLock()});
-$('selAll').addEventListener('click',()=>{store.photos.forEach(p=>picked.add(p));drawThumbs()});
+$('selAll').addEventListener('click',()=>{filtered().forEach(p=>picked.add(p));drawGrid();drawBulk()});
 $('bNone').addEventListener('click',()=>{picked.clear();drawThumbs()});
 $('bApply').addEventListener('click',()=>{
   const from=$('bFrom').value,to=$('bTo').value,parts=[...document.querySelectorAll('[data-bpart]')].filter(x=>x.checked).map(x=>x.dataset.bpart);
