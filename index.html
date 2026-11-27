@@ -1153,8 +1153,11 @@ document.addEventListener('fullscreenchange',()=>{$('full').textContent=document
 
 /* ================= Horloge, nuit ================= */
 let wakeUntil=0;
+// Écran de nuit désactivé : la photo reste affichée toute la nuit, avec la même luminosité.
+const NIGHT_SCREEN=false;
 function nightMode(){
   const h=new Date().getHours(),root=document.documentElement;
+  if(!NIGHT_SCREEN){root.classList.remove('deep','night');return}
   const deep=(h>=23||h<6)&&Date.now()>wakeUntil&&!$('panel').classList.contains('open');
   root.classList.toggle('deep',deep);
   root.classList.toggle('night',!deep&&(h>=21||h<7));
